@@ -24,7 +24,6 @@ static volatile uint8_t eng_ready;
 #define TF_ST_MAGIC 0x31465254u             /* "TRF1" */
 #define TF_ST_VERSION 1u
 enum { PG_HOME, PG_FX, PG_SEQ, PG_SEL, PG_GLO, NPAGES };
-enum { FEED_PRESSURE, FEED_VELOCITY };
 /* everything a player sets; the floats glide on a recall (EDIT+SAVE), the small ones jump */
 #define TF_ST_NF 20
 typedef struct {
@@ -37,7 +36,8 @@ typedef struct {
         } v;
         float f[TF_ST_NF];
     } u;
-    int8_t scale, root, octave, out_mode, vel_curve, press_sense, feed_mode, page;
+    int8_t scale, root, octave, rsv0, vel_curve, rsv1, rsv2, page;   /* (rsv: Speaker mode, pressure sense and the
+                                         * feed mode, cut 2026-11-04: kept so saved records still load) */
 } tf_state_t;
 static tf_state_t st;
 _Static_assert(sizeof(((tf_state_t *)0)->u.v) == TF_ST_NF * sizeof(float), "the floats a recall glides");
@@ -72,10 +72,9 @@ static void state_defaults(tf_state_t *s)
     s->scale = 1;                       /* natural minor */
     s->root = 4;                        /* E */
     s->octave = 0;
-    s->out_mode = OUT_SPEAKER;
+    s->rsv0 = 0;
     s->vel_curve = 0;
-    s->press_sense = 0;
-    s->feed_mode = FEED_PRESSURE;
+    s->rsv1 = s->rsv2 = 0;
     s->page = PG_HOME;
 }
 
@@ -93,10 +92,8 @@ static void state_fix(tf_state_t *s)
     if (s->scale < 0 || s->scale > 11) s->scale = d.scale;
     if (s->root < 0 || s->root > 11) s->root = d.root;
     if (s->octave < -2 || s->octave > 2) s->octave = d.octave;
-    if (s->out_mode != OUT_SPEAKER && s->out_mode != OUT_LINE) s->out_mode = d.out_mode;
     if (s->vel_curve < -5 || s->vel_curve > 5) s->vel_curve = d.vel_curve;
-    if (s->press_sense < -5 || s->press_sense > 5) s->press_sense = d.press_sense;
-    if (s->feed_mode != FEED_PRESSURE && s->feed_mode != FEED_VELOCITY) s->feed_mode = d.feed_mode;
+    s->rsv0 = s->rsv1 = s->rsv2 = 0;
     if (s->page < 0 || s->page >= NPAGES) s->page = d.page;
 }
 
@@ -160,7 +157,6 @@ static void params_push(void)
     p.grit = st.u.v.grit;
     p.seed_db = st.u.v.seed_db;
     p.feed = live.feed;
-    p.out_mode = st.out_mode;
     p.starve = live.starve;
     p.freeze = live.freeze;
     p.imp_amp = live.imp_amp;
@@ -440,10 +436,7 @@ static void snapshot_recall(void)
     st.scale = s.scale;
     st.root = s.root;
     st.octave = s.octave;
-    st.out_mode = s.out_mode;
     st.vel_curve = s.vel_curve;
-    st.press_sense = s.press_sense;
-    st.feed_mode = s.feed_mode;
     live.glide_t0 = plat_ms();
     live.gliding = 1;
     mark();

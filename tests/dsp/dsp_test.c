@@ -17,7 +17,6 @@ static tf_params_t base_params(float note)
     tf_params_default(&p);
     p.note = note;
     p.glide = 0.0f;
-    p.out_mode = OUT_LINE;
     return p;
 }
 
@@ -75,8 +74,6 @@ static void test_limiter(void)
         uint32_t k = i % 7u;
         x = k == 0 ? a * 1e30f : k == 1 ? (a > 0 ? INFINITY : -INFINITY) : k == 2 ? NAN : a * (float)(i % 1000u);
         y = k == 3 ? NAN : b * 1e6f;
-        if (i == 1000000u)
-            out_set_mode(&o, OUT_SPEAKER);
         o.gain = 1.0f;
         out_tick(&o, &x, &y);
         if (!(fabsf(x) <= OUT_CEIL) || !(fabsf(y) <= OUT_CEIL))
@@ -109,7 +106,6 @@ static void test_limiter(void)
             ext[k] = (i % 50u == 7u) ? tf_noise(&rng) * 1e9f : 0.0f;
         if (i % 100u == 0)
             p.imp_seq++, p.imp_amp = 1.0f;
-        p.out_mode = (i / 2000u) & 1u ? OUT_SPEAKER : OUT_LINE;
         tf_engine_render(&tb_e, &p, l, r, TF_BLOCK, ext);
         for (k = 0; k < TF_BLOCK; k++) {
             if (!(fabsf(l[k]) <= OUT_CEIL) || !(fabsf(r[k]) <= OUT_CEIL))
@@ -228,6 +224,14 @@ static void test_grit0(void)
         CHECK(corr / e * (ROT_FS / 32767.0) > 0.9 && corr / e * (ROT_FS / 32767.0) < 1.1,
               "TPDF dither: a third-of-a-step sine comes back at %.2f of its level", corr / e * (ROT_FS / 32767.0));
     }
+    {   /* Grit's coarse steps crunch, they do not hiss: silence (and anything under half a step) stores as silence */
+        uint32_t nz = 0;
+        for (i = 0; i < 100000u; i++)
+            if (tf_store16(0.0f, 1.0f / ROT_FS, 1024, &rng) != 0 ||
+                tf_store16(0.3f * 512.0f * (ROT_FS / 32767.0f) * sinf((float)i * 0.01f), 1.0f / ROT_FS, 1024, &rng) != 0)
+                nz++;
+        CHECK(nz == 0, "6-bit steps (Grit 1): silence and a signal under half a step store as silence (%u not)", nz);
+    }
 }
 
 /* -------------------------------------------------------------- numerics --- */
@@ -244,7 +248,6 @@ static int states_ok(void)
         st[n++] = pl->lp[c].ic1; st[n++] = pl->lp[c].ic2; st[n++] = pl->hp[c].ic1; st[n++] = pl->hp[c].ic2;
         st[n++] = tb_e.echo.bps[c].ic1; st[n++] = tb_e.echo.bps[c].ic2;
         st[n++] = tb_e.echo.dec[c].a1.ic1; st[n++] = tb_e.echo.dec[c].a3.ic2; st[n++] = tb_e.echo.dec[c].post.ic1;
-        st[n++] = tb_e.out.hp[c].ic1; st[n++] = tb_e.out.lp[c].ic2;
     }
     st[n++] = pl->g; st[n++] = pl->press; st[n++] = pl->imp_env; st[n++] = tb_e.rot.dec.a1.ic1;
     st[n++] = tb_e.rot.dec.op; st[n++] = tb_e.out.lim_g;

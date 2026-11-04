@@ -52,12 +52,13 @@ controls update once per 128-frame block. The core is float at full rate; only s
 - **Tape echo** (after the loop): stereo, int16 at fs/4, **4 s**. An 800 Hz bandpass and soft clip in its feedback,
   which may exceed 1×. Wow and flutter from slow pointer jitter. Wear (Grit-linked) adds hiss, dropouts and bit loss.
   Freeze holds the buffer as a loop. Return feeds the echo output back into the feed mixer.
-- **Feed sources in the MVP**: noise seed, pressure feed, velocity impulse (a short noise burst), echo return. Metal
+- **Feed sources in the MVP**: noise seed, key feed (from velocity), velocity impulse (a short noise burst), echo return. Metal
   impulses from flash, FM bursts and FM cross-mod are v1.x. Leave hooks, don't build them.
 - **Starve**: a fast, smoothed cut of feedback gain to the floor, held or latched.
 - **Output**: the Grit macro scales Rot decimation and quantization, echo Wear and the wavefold. **Grit at 0 is fully
-  clean**: proper anti-alias filtering and dither, no Wear, no fold. Speaker mode band-limits and saturates for the
-  built-in driver; Line mode is flat. A hard limiter comes after everything and is never bypassed. MASTER is the
+  clean**: proper anti-alias filtering and dither, no Wear, no fold. At high Grit the coarse steps crunch (a
+  distortion that follows the signal), they don't hiss: the dither stays light. The output is flat (Speaker mode was
+  cut on 2026-11-04: it wasn't useful). A hard limiter comes after everything and is never bypassed. MASTER is the
   hardware pot after the limiter. Boot is always quiet and safe.
 
 ## Keys (decided; differs from the original PRD)
@@ -67,16 +68,16 @@ a probe that compresses firm presses.
 
 - All **16 white keys F3–G5** play the chosen scale (changed 2026-11-04: it was the 12 white keys F3–C5). Each key
   is the next scale degree up from the root, with glide. OCT− and OCT+ shift by an octave. The string is monophonic:
-  the last-held key wins. The top four (D5–G5) have no pressure, so they feed from their strike velocity, held until
-  release, as in velocity mode.
-- **Pressure** on the held white key raises **only the noise feed level**, not the feedback gain. The gain belongs to
-  the Feedback encoder. Release stops feeding.
-- **Velocity** on a white key fires an impulse at that strength.
+  the last-held key wins.
+- **Velocity** on a white key fires an impulse at that strength, and **sets the noise feed level**, held until the
+  key is released (every key alike). It sets only the feed, not the feedback gain, which belongs to the Feedback
+  encoder. Release stops feeding.
+- **Pressure is not used** (changed 2026-11-04). It was meant to raise the feed, but on the FM-1 it wasn't playable,
+  and the top row has none, so velocity feeds every key the same way.
 - **A#4** (the black key labeled GLO) re-strikes the held note. Velocity sets the impulse strength, the pitch doesn't
-  change, and its pressure is unused.
+  change.
 - Every other black key is **reserved and does nothing**.
-- Pressure fallback (pressure sensing is still experimental on this hardware): a Setup option switches feeding to
-  velocity mode, where strike velocity sets a feed level held until release. ARP latch works in both modes.
+- ARP latches the feed: the last key keeps feeding after release.
 
 ## Controls
 
@@ -88,10 +89,10 @@ Pages, as button: KNOB 1 / 2 / 3 / 4:
 - HOME (Plant): Body / Drive / LPF / HPF
 - FX (Rot): Mix / Decay / Smear / Jitter
 - SEQ (Echo): Send (EDIT-shift: Return) / Time / Feedback / Wear
-- SEL (Keys): Scale / Root / Glide / Pressure depth. About 12 scales: major, natural minor, dorian, phrygian, lydian,
+- SEL (Keys): Scale / Root / Glide / Depth (the feed's level at full velocity). About 12 scales: major, natural minor, dorian, phrygian, lydian,
   mixolydian, locrian, harmonic minor, major and minor pentatonic, whole tone, chromatic.
-- GLO (Setup): Output mode (Speaker/Line) / Velocity curve / Pressure sense (EDIT-shift: feed mode
-  pressure/velocity) / Seed level
+- GLO (Setup): Velocity curve / Seed level / (free) / (free). Its page line shows the render's load, its longest
+  block and the xruns (changed 2026-11-04: Output mode, Pressure sense and the feed mode were cut).
 
 Buttons: PLAY = Starve (hold to cut, double-tap to latch). REC = freeze the echo. ARP = latch feed (the last key
 keeps feeding after release). ENV / LFO = hold to step the echo time ×0.5 / ×2. EDIT = shift. SAVE = save the one
@@ -127,7 +128,7 @@ CPU target: one plant under 50% of one core at 240 MHz (`plat_cpu_pct`). Device 
 ## Modules
 
 `dsp/plant` (string, drive, filters, body delay, feed mixer, feedback gain), `dsp/rot`, `dsp/echo`, `dsp/out` (Grit
-mapping, Speaker/Line, limiter), `ui/` (pages, screen, encoders, keys and pressure), `app.c` (app_init, app_render,
+mapping, limiter), `ui/` (pages, screen, encoders, keys), `app.c` (app_init, app_render,
 app_frame, saved state).
 
 ## Licensing

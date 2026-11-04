@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: MIT
  * Copyright (C) 2026 john-s */
 /* The keys (docs/PRD.md, Keys): the 16 white keys F3..G5 play the scale, one degree each up from the root, the
- * last held winning (the string is monophonic), with glide; a key's velocity fires an impulse, its pressure raises the
- * noise feed (only the feed: the gain is SELECT's). A#4 strikes the held note again. Every other black key does
- * nothing (reserved). D5..G5 (the top row) have velocity but no pressure: they feed from their strike velocity, held
- * until release. Pressure sensing is still experimental on the FM-1, so the feed can come
- * from the velocity instead (GLO, EDIT + K3), held until release; ARP latches the feed either way.
+ * last held winning (the string is monophonic), with glide. A key's velocity fires an impulse and sets the noise feed,
+ * held until the key is let go (only the feed: the gain is SELECT's); every key alike. Pressure is not used: on the
+ * FM-1 it was not playable, and the top row has none. A#4 strikes the held note again; the other black keys do
+ * nothing (reserved). ARP latches the feed.
  * Part of app.c (the unity build). */
 
 #define NPLAY 16
@@ -62,7 +61,6 @@ static void keys_boot(void)
     for (int i = 0; i < 8; i++)
         kb.recent[i] = 0.0f;
     touch_curve(st.vel_curve);
-    touch_sens(st.press_sense);
 }
 
 static int degree_of(uint32_t k)
@@ -135,10 +133,8 @@ static void keys_poll(void)
     /* the feed: pressure on the key playing, or its strike velocity, times the depth */
     if (kb.top >= 0) {
         uint32_t t = (uint32_t)kb.top;
-        /* (D5..G5, the top row, have no pressure: their strike velocity feeds, held, as in velocity mode) */
-        feed = st.feed_mode == FEED_VELOCITY || !touch_sensed(t)
-                   ? (float)kb.vel * (1.0f / 127.0f)
-                   : (touch_down(t) ? (float)touch_pressure(t) * (1.0f / 127.0f) : 0.0f);
+        feed = (float)kb.vel * (1.0f / 127.0f);   /* the strike's velocity, held until release (every key alike) */
+        (void)t;
         feed *= st.u.v.press_depth;
         live.feed = feed;
     } else if (!live.latch) {

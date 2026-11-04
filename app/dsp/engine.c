@@ -29,7 +29,6 @@ void tf_params_default(tf_params_t *p)
     p->grit = 0.0f;
     p->seed_db = -90.0f;
     p->feed = 0.0f;
-    p->out_mode = OUT_SPEAKER;
     p->starve = 0;
     p->freeze = 0;
     p->imp_seq = 0;
@@ -134,7 +133,6 @@ void tf_engine_render(tf_engine_t *e, const tf_params_t *p, float *l, float *r, 
     plant_set(pl, &pp);
     rot_set(&e->rot, &rp);
     echo_set(&e->echo, &ep);
-    out_set_mode(&e->out, p->out_mode);
     e->out.gain = TF_OUT_GAIN;
     if (p->imp_seq != e->imp_seen) {
         e->imp_seen = p->imp_seq;

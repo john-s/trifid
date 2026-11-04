@@ -46,7 +46,7 @@ void echo_set(echo_t *e, const echo_params_t *k)
     e->send = fm_clampf(k->send, 0.0f, 1.0f);
     e->fb = fm_clampf(k->feedback, 0.0f, 1.25f);
     e->d_target = fm_clampf(k->time_s, ECHO_MIN_S, ECHO_MAX_S) * TF_FS4;
-    e->hiss = wear * wear * 0.006f;
+    e->hiss = wear * wear * 0.0015f;                        /* tape hiss: about -56 dB at full Wear */
     e->qstep = wear <= 0.0f ? 1 : (int32_t)1 << (int32_t)(wear * 9.0f + 0.5f);   /* 16 bits .. 7 */
     tf_dec_set(&e->dc, k->grit);
     if (k->freeze && !e->frozen) {

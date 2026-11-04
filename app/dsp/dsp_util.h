@@ -137,17 +137,24 @@ static inline void tf_svf_resp(const tf_svf_coef_t *c, int hp, float w, float *m
 }
 
 /* ------------------------------------------------------------ int16 storage --- */
-/* a float in [-fs, fs] stored as int16: rounded, with TPDF dither of +-1 step; step is in LSBs (1: 16 bits, 2^k:
- * 16 - k bits) */
+/* a float in [-fs, fs] stored as int16, rounded, with light TPDF dither: +-1 LSB of 16 bits, whatever the step.
+ * step is in LSBs (1: 16 bits, 2^k: 16 - k bits). At 16 bits the dither linearises the rounding (clean); at coarse
+ * steps it is far smaller than a step, so the rounding stays a distortion that follows the signal (crunch), and a
+ * signal under half a step stores as silence, not as hiss */
 static inline int16_t tf_store16(float x, float inv_fs, int32_t step, uint32_t *rng)
 {
-    float d = (tf_noise(rng) + tf_noise(rng)) * 0.5f;           /* triangular, +-1 */
-    float v = x * inv_fs * 32767.0f / (float)step + d;
+    float d = (tf_noise(rng) + tf_noise(rng)) * 0.5f;           /* triangular, +-1 LSB */
+    float v = x * inv_fs * 32767.0f + d;
     int32_t q;
     if (!tf_finite(v))
         return 0;
-    v = fm_clampf(v, -32767.0f / (float)step, 32767.0f / (float)step);
-    q = (int32_t)(v + (v >= 0.0f ? 0.5f : -0.5f)) * step;       /* round half away from zero */
+    v = fm_clampf(v, -32767.0f, 32767.0f);
+    if (step > 1) {
+        float u = v / (float)step;
+        q = (int32_t)(u + (u >= 0.0f ? 0.5f : -0.5f)) * step;
+    } else {
+        q = (int32_t)(v + (v >= 0.0f ? 0.5f : -0.5f));
+    }
     return (int16_t)(q < -32767 ? -32767 : q > 32767 ? 32767 : q);
 }
 

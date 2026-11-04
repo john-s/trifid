@@ -25,13 +25,15 @@ expect drone10 420
 spin ALGO -2
 wait 30
 expect drone10 400
-# white key F3 (the root, E in minor: E2 = 40): its note, an impulse at its velocity; pressure feeds
+# white key F3 (the root, E in minor: E2 = 40): its note, an impulse at its velocity; the velocity sets the feed,
+# held (pressing harder changes nothing: the same as without)
 expect imp 0
 key 0 down 100 80
 wait 600
 expect note10 400
 expect imp 1
 expect feed100 >20
+expect feed100 <80
 shot key.png
 key 0 up
 wait 100
@@ -71,8 +73,8 @@ wait 50
 key 1 up
 expect imp 5
 expect note10 400
-# all 16 white keys play: D5 (key 21) is degree 12 (E minor from E2: C4 = 60), and the top row feeds from its
-# velocity (it has no pressure)
+# all 16 white keys play: D5 (key 21) is degree 12 (E minor from E2: C4 = 60), and feeds from its velocity as the
+# others do
 key 21 down 100
 wait 100
 expect note10 600
@@ -119,25 +121,22 @@ wait 30
 spin K1 2
 wait 30
 expect scale 3
+# GLO: the velocity curve and the seed; K3 and K4 are free (they do nothing)
 tap GLO
 wait 30
-spin K1 1
+spin K1 2
 wait 30
-expect outmode 1
-press EDIT
-spin K3 1
-release EDIT
+expect curve 2
+spin K1 -2
+spin K2 -5
 wait 30
-expect feedmode 1
-spin K3 -1
-spin K3 1
+expect seed -95
+spin K2 5
+spin K3 3
+spin K4 3
 wait 30
-expect feedmode 1
-press EDIT
-spin K3 -1
-release EDIT
-wait 30
-expect feedmode 0
+expect seed -90
+expect curve 0
 tap HOME
 wait 30
 turn PRESET 25 20

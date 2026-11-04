@@ -6,15 +6,15 @@ From `tools/ram_report.py`: the firmware's own sources (fm1-base's `device/unity
 
 | Region | Used | Limit | Left |
 | --- | ---: | ---: | ---: |
-| RAM (.data + .bss) | 28,695 | 98,304 | 69,609 |
+| RAM (.data + .bss) | 28,615 | 98,304 | 69,689 |
 | .pool | 317,536 | 344,064 | 26,528 (fm1-base insists on 8,192 spare) |
-| RAM, the device build's link (`app/build/trifid.elf`) | 28,580 | 98,304 | 69,724 |
+| RAM, the device build's link (`app/build/trifid.elf`) | 28,756 | 98,304 | 69,548 |
 | .pool, the device build's link | 317,536 | 344,064 | 26,528 |
 | .ram_text (the platform's RAM code) | 3,132 | 32,768 | 29,636 |
 
-The firmware image is 127,264 B (the app slot: 581 KB).
+The firmware image is 128,272 B (the app slot: 581 KB).
 
-Verdict: **fits** (pool headroom 26,528 B, RAM headroom 69,609 B).
+Verdict: **fits** (pool headroom 26,528 B, RAM headroom 69,689 B).
 
 ## .pool against the budget (docs/PRD.md)
 
@@ -49,7 +49,7 @@ Pool objects:
 | `abuf` | bss | 2,048 |
 | `ua_ring` | bss | 2,048 |
 | `sn_key` | bss | 1,944 |
-| `eng` | bss | 1,468 |
+| `eng` | bss | 1,392 |
 | `ota_stage.hdr` | bss | 1,024 |
 | `ota_dec` | bss | 640 |
 | `sx_frame` | bss | 640 |
@@ -64,15 +64,15 @@ Pool objects:
 | `midi_out_q` | bss | 256 |
 | `fm1_in_stat` | bss | 236 |
 | `live` | bss | 204 |
-| (158 more) | | 2,821 |
+| (158 more) | | 2,817 |
 
 ## USB audio's cost
 
 | Build | RAM | Pool |
 | --- | ---: | ---: |
-| as configured (USB audio in and out) | 28,695 | 317,536 |
-| without the computer's audio (`usb_audio_out = false`) | 20,262 | 317,536 |
-| without USB audio (`usb_audio_in = false`) | 17,949 | 317,536 |
+| as configured (USB audio in and out) | 28,615 | 317,536 |
+| without the computer's audio (`usb_audio_out = false`) | 20,182 | 317,536 |
+| without USB audio (`usb_audio_in = false`) | 17,869 | 317,536 |
 
 USB audio costs 10,746 B of RAM and 0 B of pool in all, 8,433 B of RAM of it for the computer's audio (out). Its rings are in RAM by default (fm1-base `FM1B_UAC_RING_POOL` would move them to the pool).
 

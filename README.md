@@ -20,11 +20,11 @@ below ignition it is (the white line is 0 dB). Under it is the output's scope.
 | --- | --- |
 | SELECT | Feedback: −60 to +12 dB, 0.1 dB a detent near ignition |
 | ALGORITHM | the pitch (a semitone a detent) when no key is held; fine tune while one is |
-| PRESETS | Grit: Rot's decimation and steps, echo Wear, the wavefold. 0 is clean |
+| PRESETS | Grit: corrosion. Rot's aliasing and coarse steps (a crunch that follows the signal), the echo's Wear, and past a third, a wavefold in the loop. 0 is clean |
 | MASTER | the volume, after the limiter |
-| White keys F3–G5 | the scale, one degree each up from the root; the last held wins, with glide. Velocity strikes, pressure feeds noise (D5–G5 have no pressure: their velocity feeds, held) |
+| White keys F3–G5 | the scale, one degree each up from the root; the last held wins, with glide. Velocity strikes, and sets the noise feed, held until release |
 | A#4 | strike the held note again |
-| HOME / FX / SEQ / SEL / GLO | pages: Plant (Body, Drive, LPF, HPF), Rot (Mix, Decay, Smear, Jitter), Echo (Send / EDIT: Return, Time, Feedback, Wear), Keys (Scale, Root, Glide, Depth), Setup (Output, Velocity curve, Pressure sense / EDIT: feed mode, Seed) |
+| HOME / FX / SEQ / SEL / GLO | pages: Plant (Body, Drive, LPF, HPF), Rot (Mix, Decay, Smear, Jitter), Echo (Send / EDIT: Return, Time, Feedback, Wear), Keys (Scale, Root, Glide, Depth), Setup (Velocity curve, Seed; the CPU and xrun figures) |
 | PLAY | Starve: hold to cut the loop; double-tap to latch, tap to let go |
 | REC | freeze the echo |
 | ARP | latch the feed: the last key keeps feeding after release |
@@ -40,8 +40,8 @@ The last state is saved by itself. Boot is quiet: the feedback starts at least 6
 | --- | --- |
 | `app/fm1.toml` | the build settings (fm1-base's `tools/build.py`) |
 | `app/app.h`, `app/app.c` | the contract with fm1-base, the engine's pool buffers, the render, the saved state |
-| `app/ui/` | `keys.c` (scale keys, pressure, velocity), `pages.c` (encoders, pages, buttons), `screen.c` (the meter, the scope) |
-| `app/dsp/` | the DSP, plain C with no platform calls: `plant` (string, drive, filters, body delay, feed mixer, feedback gain), `rot`, `echo`, `out` (Grit map, Speaker/Line, limiter), `engine` (the chain), `dsp_util.h` |
+| `app/ui/` | `keys.c` (scale keys, velocity feed), `pages.c` (encoders, pages, buttons), `screen.c` (the meter, the scope) |
+| `app/dsp/` | the DSP, plain C with no platform calls: `plant` (string, drive, filters, body delay, feed mixer, feedback gain), `rot`, `echo`, `out` (Grit map, limiter), `engine` (the chain), `dsp_util.h` |
 | `app/host.c` | the host simulator's checks |
 | `tests/` | `dsp/` (native DSP tests, renders, a benchmark), `scenarios/` (the whole app in the simulator), `run_tests.sh` |
 | `tools/ram_report.py` | the static RAM report |
