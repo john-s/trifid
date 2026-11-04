@@ -60,6 +60,7 @@ int main(int argc, char **argv)
         }
     }
     fclose(f);
+    tf_engine_meter(&tb_e, &p);
     printf("%s: %.1f s, margin now %.2f dB\n", argv[1], secs, tb_e.margin_db);
     return 0;
 }

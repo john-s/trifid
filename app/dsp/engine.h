@@ -44,7 +44,7 @@ typedef struct {
     int primed;
     float c_note, c_lpf, c_hpf, c_peak;  /* what the loop's peak gain was last worked out for */
     /* the meters, for the UI */
-    volatile float margin_db;           /* how far above (+) or below ignition the loop runs now */
+    float margin_db;                    /* how far above (+) or below ignition the loop runs now (tf_engine_meter) */
     volatile float peak;                /* the output's peak this block (0..OUT_CEIL) */
     int8_t scope[TF_SCOPE_N];           /* the left output, a point every 8 frames */
     volatile uint32_t scope_w;
@@ -70,5 +70,7 @@ void tf_params_default(tf_params_t *p);
 /* one block (n <= TF_BLOCK frames, normally TF_BLOCK): the parameters read once, then the samples. l / r in
  * [-OUT_CEIL, OUT_CEIL]. ext: the v1.x feed sources (metal impulses, FM bursts), n samples, or 0 */
 void tf_engine_render(tf_engine_t *e, const tf_params_t *p, float *l, float *r, uint32_t n, const float *ext);
+/* the gain-margin meter (margin_db, c_peak), worked out in the main loop: call it before reading them */
+void tf_engine_meter(tf_engine_t *e, const tf_params_t *p);
 /* the ignition threshold (dB of feedback gain) for these parameters, without running anything */
 float tf_engine_threshold_db(tf_engine_t *e, const tf_params_t *p);
