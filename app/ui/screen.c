@@ -4,6 +4,8 @@
  * meter: how close the loop is to ignition, above the output's scope) and the page along the bottom (its four
  * knobs' names and values). One level, no menus. Part of app.c (the unity build). */
 
+static uint32_t cpu_peak, boot_ms;       /* the render's most load since boot (Setup shows it) */
+
 #define MARGIN_LO (-24.0f)               /* the meter's scale, dB */
 #define MARGIN_HI 12.0f
 
@@ -112,8 +114,23 @@ static void draw_bottom(void)
     cv_rect(0, 0, 240, 1, C_LINE);
     cv_text(8, 3, &FONT_XS, PAGE_BTN[st.page], C_GRAY);
     cv_text(8 + text_w(&FONT_XS, PAGE_BTN[st.page]) + 6, 3, &FONT_XS, PAGE_NAME[st.page], C_HI);
-    if (shift)
+    if (shift) {
         cv_text(232 - text_w(&FONT_XS, "EDIT"), 3, &FONT_XS, "EDIT", C_WHITE);
+    } else if (st.page == PG_GLO) {      /* Setup: the render's load (now, the most since boot) and the xruns */
+        char d[40], v[12];
+        uint32_t xr = plat_xruns();
+        d[0] = 0;
+        text_cat(d, "CPU ");
+        int_text((int32_t)plat_cpu_pct(), v);
+        text_cat(d, v);
+        text_cat(d, "% PEAK ");
+        int_text((int32_t)cpu_peak, v);
+        text_cat(d, v);
+        text_cat(d, "% XRUN ");
+        int_text((int32_t)xr, v);
+        text_cat(d, v);
+        cv_text(232 - text_w(&FONT_XS, d), 3, &FONT_XS, d, cpu_peak >= 50u || xr ? C_WHITE : C_GRAY);
+    }
     for (i = 0; i < 4; i++) {
         int k = knob_at(st.page, i, shift);
         int32_t x = i * 60;
@@ -127,7 +144,7 @@ static void draw_bottom(void)
 /* a screen reader that has just started listening (or asks) hears the screen */
 static void speak(void)
 {
-    char t[160], v[16];
+    char t[200], v[16];
     int i;
     if (ann_on() && ann_where()) {
         t[0] = 0;
@@ -145,6 +162,14 @@ static void speak(void)
             knob_text(k, v);
             text_cat(t, v);
         }
+        if (st.page == PG_GLO) {
+            text_cat(t, ". CPU ");
+            int_text((int32_t)cpu_peak, v);
+            text_cat(t, v);
+            text_cat(t, " PERCENT PEAK. XRUNS ");
+            int_text((int32_t)plat_xruns(), v);
+            text_cat(t, v);
+        }
         ann_say(t, 0, ANN_NOW);
     }
     ann_tick(plat_ms());
@@ -153,13 +178,14 @@ static void speak(void)
 void app_ui_init(void)
 {
     touch_on(1);
+    boot_ms = plat_ms();
     lcd_fill(0, 0, 240, 240, C_BLACK);
     ui.redraw_head = ui.redraw_bottom = 1;
 }
 
 void app_frame(void)
 {
-    static uint32_t n, last_head;
+    static uint32_t n, last_head, stats_at;
     uint32_t now = plat_ms(), head_key;
     input();
     speak();
@@ -172,6 +198,12 @@ void app_frame(void)
         ui.redraw_head = 0;
         last_head = head_key;
         draw_head();
+    }
+    if (plat_cpu_pct() > cpu_peak && now - boot_ms > 3000u)   /* (the first seconds: boot's own work) */
+        cpu_peak = plat_cpu_pct();
+    if (st.page == PG_GLO && now - stats_at >= 250u) {        /* Setup's load figures, four times a second */
+        stats_at = now;
+        ui.redraw_bottom = 1;
     }
     if (ui.redraw_bottom || live.gliding) {
         ui.redraw_bottom = 0;
