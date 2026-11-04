@@ -1,0 +1,140 @@
+# The autosave log (app.c): saves write one flash page each, never erasing while it plays; the boot and quiet erase.
+#   app/build/host/trifid_host tests/scenarios/autosave.txt app/build/scenarios
+wait 800
+expect store_writes 0
+expect logslot 0
+expect logsec 0
+# loud: ignited
+spin SELECT 9
+spin SELECT 6
+spin SELECT 4
+wait 10000
+expect margin10 >0
+expect peakdb >-40
+expect dirty 0
+# (the feedback's change was the first record)
+expect logslot 1
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+turn K4 -1 20
+wait 4300
+expect dirty 0
+turn K4 1 20
+wait 4300
+expect dirty 0
+expect logslot 32
+expect logsec 0
+expect store_writes 0
+# the 33rd while loud: the sector is full, the erase waits for quiet
+expect peakdb >-40
+turn K4 3 20
+wait 4300
+expect dirty 1
+expect logslot 32
+expect store_writes 0
+# quiet (Starve latched): it erases the other sector and writes there
+tap PLAY
+wait 100
+tap PLAY
+wait 3000
+expect starvelatch 1
+expect dirty 0
+expect logsec 1
+expect logslot 1
+expect logseq 34
+expect store_writes 0
+expect knob100_3 4
+# the newest record wins at boot; this session writes the other sector
+reboot
+wait 800
+expect knob100_3 4
+expect logsec 0
+expect logslot 0
+expect logseq 34
+expect store_writes 0
+expect setmargin10 <-59
