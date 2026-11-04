@@ -95,6 +95,21 @@ def measure(defs):
     return objs, sums
 
 
+def real_link():
+    """the device build's own figures from app/build/trifid.elf (./build.sh), if there is one: {name: bytes}"""
+    import os
+    elf = APP / "build" / "trifid.elf"
+    tc = Path(os.environ.get("JIELI_TOOLCHAIN", Path.home() / ".jieli" / "toolchain"))
+    if not elf.exists() or not (tc / "common" / "bin" / "objdump").exists():
+        return None
+    syms = subprocess.run([str(tc / "common" / "bin" / "objdump"), "-t", str(elf)], capture_output=True, text=True).stdout
+    def sym(n):
+        m = re.search(r"^([0-9a-f]+) .*\s" + n + r"$", syms, re.M)
+        return int(m.group(1), 16) if m else 0
+    return {"ram": sym("_bss_end") - 0x01C08000, "pool": sym("_pool_end") - sym("_pool_start"),
+            "ram_text": sym("_rt_end") - sym("_rt_start"), "image": (APP / "build" / "trifid.bin").stat().st_size}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--md", type=Path, help="also write the report as Markdown")
@@ -120,6 +135,16 @@ def main():
     L.append(f"| .pool | {sums['pool']:,} | {POOL_MAX:,} | {POOL_MAX - sums['pool']:,} "
              f"(fm1-base insists on {POOL_SPARE:,} spare) |")
     ok = POOL_MAX - sums["pool"] >= POOL_SPARE and sums["ram"] <= RAM_MAX
+    real = real_link()
+    if real:
+        L.append(f"| RAM, the device build's link (`app/build/trifid.elf`) | {real['ram']:,} | {RAM_MAX:,} | "
+                 f"{RAM_MAX - real['ram']:,} |")
+        L.append(f"| .pool, the device build's link | {real['pool']:,} | {POOL_MAX:,} | {POOL_MAX - real['pool']:,} |")
+        L.append(f"| .ram_text (the platform's RAM code) | {real['ram_text']:,} | {0x8000:,} | "
+                 f"{0x8000 - real['ram_text']:,} |")
+        L.append(f"\nThe firmware image is {real['image']:,} B (the app slot: 581 KB).")
+    else:
+        L.append("\n(No device build here: `./build.sh` adds the real link's figures.)")
     L.append(f"\nVerdict: **{'fits' if ok else 'DOES NOT FIT'}** (pool headroom {POOL_MAX - sums['pool']:,} B, "
              f"RAM headroom {RAM_MAX - sums['ram']:,} B).\n")
     L.append("## .pool against the budget (docs/PRD.md)\n")

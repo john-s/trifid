@@ -8,6 +8,11 @@ From `tools/ram_report.py`: the firmware's own sources (fm1-base's `device/unity
 | --- | ---: | ---: | ---: |
 | RAM (.data + .bss) | 28,513 | 98,304 | 69,791 |
 | .pool | 317,536 | 344,064 | 26,528 (fm1-base insists on 8,192 spare) |
+| RAM, the device build's link (`app/build/trifid.elf`) | 28,548 | 98,304 | 69,756 |
+| .pool, the device build's link | 317,536 | 344,064 | 26,528 |
+| .ram_text (the platform's RAM code) | 3,132 | 32,768 | 29,636 |
+
+The firmware image is 125,520 B (the app slot: 581 KB).
 
 Verdict: **fits** (pool headroom 26,528 B, RAM headroom 69,791 B).
 

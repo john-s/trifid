@@ -21,12 +21,12 @@ static tf_params_t prm;                  /* the main loop writes, the render rea
 static volatile uint8_t eng_ready;
 
 /* ----------------------------------------------------------------- state --- */
-#define ST_MAGIC 0x31465254u             /* "TRF1" */
-#define ST_VERSION 1u
+#define TF_ST_MAGIC 0x31465254u             /* "TRF1" */
+#define TF_ST_VERSION 1u
 enum { PG_HOME, PG_FX, PG_SEQ, PG_SEL, PG_GLO, NPAGES };
 enum { FEED_PRESSURE, FEED_VELOCITY };
 /* everything a player sets; the floats glide on a recall (EDIT+SAVE), the small ones jump */
-#define ST_NF 20
+#define TF_ST_NF 20
 typedef struct {
     uint32_t magic;
     uint16_t version, size;
@@ -35,19 +35,19 @@ typedef struct {
             float fb_db, drone, fine, glide, body, drive, lpf, hpf, rot_mix, rot_decay, rot_smear, rot_jitter,
                 echo_send, echo_ret, echo_time, echo_fb, echo_wear, grit, seed_db, press_depth;
         } v;
-        float f[ST_NF];
+        float f[TF_ST_NF];
     } u;
     int8_t scale, root, octave, out_mode, vel_curve, press_sense, feed_mode, page;
 } tf_state_t;
 static tf_state_t st;
-_Static_assert(sizeof(((tf_state_t *)0)->u.v) == ST_NF * sizeof(float), "the floats a recall glides");
+_Static_assert(sizeof(((tf_state_t *)0)->u.v) == TF_ST_NF * sizeof(float), "the floats a recall glides");
 
 static void state_defaults(tf_state_t *s)
 {
     tf_params_t d;
     tf_params_default(&d);
-    s->magic = ST_MAGIC;
-    s->version = ST_VERSION;
+    s->magic = TF_ST_MAGIC;
+    s->version = TF_ST_VERSION;
     s->size = (uint16_t)sizeof *s;
     s->u.v.fb_db = -30.0f;
     s->u.v.drone = 40.0f;               /* E2 */
@@ -84,10 +84,10 @@ static void state_fix(tf_state_t *s)
 {
     tf_state_t d;
     int i;
-    static const float lo[ST_NF] = {-60, 16, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -120, 0};
-    static const float hi[ST_NF] = {12, 72, 100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -60, 1};
+    static const float lo[TF_ST_NF] = {-60, 16, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -120, 0};
+    static const float hi[TF_ST_NF] = {12, 72, 100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -60, 1};
     state_defaults(&d);
-    for (i = 0; i < ST_NF; i++)
+    for (i = 0; i < TF_ST_NF; i++)
         if (!(s->u.f[i] >= lo[i] && s->u.f[i] <= hi[i]))     /* (a NaN fails both) */
             s->u.f[i] = d.u.f[i];
     if (s->scale < 0 || s->scale > 11) s->scale = d.scale;
@@ -103,7 +103,7 @@ static void state_fix(tf_state_t *s)
 static int state_load(uint32_t obj, tf_state_t *s)
 {
     tf_state_t t;
-    if (plat_store_load(obj, &t, sizeof t) != (int)sizeof t || t.magic != ST_MAGIC || t.version != ST_VERSION ||
+    if (plat_store_load(obj, &t, sizeof t) != (int)sizeof t || t.magic != TF_ST_MAGIC || t.version != TF_ST_VERSION ||
         t.size != sizeof t)
         return 0;
     state_fix(&t);
@@ -120,7 +120,7 @@ static struct {
     uint32_t imp_seq;
     float imp_amp;
     /* the recall's glide (EDIT+SAVE): from, to, when it started */
-    float from[ST_NF], to[ST_NF];
+    float from[TF_ST_NF], to[TF_ST_NF];
     uint32_t glide_t0;
     uint8_t gliding;
     /* the autosave */
@@ -290,7 +290,7 @@ static void snapshot_recall(void)
         app_say("NO SNAPSHOT", "SAVE FIRST");
         return;
     }
-    for (i = 0; i < ST_NF; i++) {
+    for (i = 0; i < TF_ST_NF; i++) {
         live.from[i] = st.u.f[i];
         live.to[i] = s.u.f[i];
     }
@@ -316,7 +316,7 @@ static void recall_glide(void)
         return;
     a = t >= 1000u ? 1.0f : (float)t / 1000.0f;
     a = a * a * (3.0f - 2.0f * a);      /* smooth at both ends */
-    for (i = 0; i < ST_NF; i++)
+    for (i = 0; i < TF_ST_NF; i++)
         st.u.f[i] = live.from[i] + (live.to[i] - live.from[i]) * a;
     if (t >= 1000u)
         live.gliding = 0;
