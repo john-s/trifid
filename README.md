@@ -9,6 +9,7 @@ idea is borrowed from Synthux Academy's [Audrey II](https://github.com/Synthux-A
   [docs/DECISIONS.md](docs/DECISIONS.md).
 - RAM: [docs/ram.md](docs/ram.md) (the static report against the pool budget).
 - USB audio as a feed source: [docs/usb-audio.md](docs/usb-audio.md) (an investigation).
+- On the FM-1: [docs/device-results.md](docs/device-results.md) (CPU peak 27%, zero xruns in 10 minutes).
 
 ## Playing it
 
