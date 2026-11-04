@@ -7,23 +7,23 @@ to them.
 
 1. **Keys differ from the original PRD.** All 16 white keys F3–G5 play the chosen scale, one degree each up from
    the root, with glide (the owner widened it from the 12 white keys F3–C5 on 2026-11-04, after playing it). OCT−/OCT+
-   shift by an octave. The string is monophonic and the last-held key wins. D5–G5 are on the top row, which fm1-base's
-   `lib/touch` reads through a velocity probe with no pressure, so they feed from their strike velocity, held until
-   release (as velocity mode does), whatever the feed mode.
-2. **Pressure raises only the noise feed level**, never the feedback gain, which belongs to the Feedback encoder
-   (SELECT). Release stops feeding.
+   shift by an octave. The string is monophonic and the last-held key wins.
+2. **Velocity sets the noise feed level, held until release, on every key alike** (changed 2026-11-04). It raises
+   only the feed, never the feedback gain, which belongs to the Feedback encoder (SELECT). Release stops feeding.
+   Originally pressure fed the loop, with velocity as a Setup fallback. On the FM-1 the owner found pressing harder
+   wasn't usable, and the top row (D5–G5) has no pressure at all, so pressure, the Sense knob and the feed-mode
+   option were cut for one behaviour on all 16 keys.
 3. **Velocity fires an impulse** (a short noise burst) at that strength.
-4. **A#4 (labelled GLO) re-strikes the held note.** Velocity sets the impulse, the pitch doesn't change, and its
-   pressure is unused.
+4. **A#4 (labelled GLO) re-strikes the held note.** Velocity sets the impulse, and the pitch doesn't change.
 5. **Every other black key is reserved** and does nothing.
-6. **Pressure fallback.** A Setup option (GLO, EDIT + K3) switches feeding to velocity mode: the strike velocity sets
-   a feed level, held until release. ARP latch works in both modes.
+6. **Speaker mode is cut** (2026-11-04, after playing it): the output is flat. Setup (GLO) is now Velocity curve /
+   Seed level, with two free knobs.
 7. **Echo length is 4 s**, stereo, int16 at fs/4 (176,472 bytes of pool).
 8. **USB audio stays on for now.** Its cost is measured (`docs/ram.md`); routing it in as a feed source is
    investigated in `docs/usb-audio.md`, which recommends cutting it from the MVP.
 9. **The second plant (cpu2) is a stretch goal.** cpu2 stays off: core 1 misreads RAM on some units, so the second
    plant is never required.
-10. **Feed sources in the MVP**: noise seed, pressure feed, velocity impulse and echo return. Metal impulses from
+10. **Feed sources in the MVP**: noise seed, the key feed (from velocity), velocity impulse and echo return. Metal impulses from
     flash, FM bursts and FM cross-mod are v1.x. The hook is `tf_engine_render(..., ext)`, a per-sample signal summed
     into the feed mixer.
 11. **Fixed encoders**: SELECT = Feedback (fine/coarse near the threshold; momentum is v1.x), ALGORITHM = fine tune,
@@ -80,14 +80,18 @@ instrument behaves, and are worth the owner's ear.
   (measured). Up to Grit 0.5 the pre-filter crossfades to a one-pole whose cutoff rises (3–17 kHz). From 0.5 to 1 it
   crossfades to nothing, and the reconstruction goes to zero-order hold. (A 4th-order filter at 4.4 kHz only gave
   about 25 dB.)
-- **Storage**: rounding with TPDF dither of ±1 step (a third-of-a-step sine survives at full level in the test).
-  Rot keeps 16 bits up to Grit 0.25, then drops to 6 bits at Grit 1. The echo's bit loss comes with Wear: 16 down
+- **Storage**: rounding with light TPDF dither, ±1 LSB of 16 bits whatever the step (a third-of-a-step sine survives
+  at full level at 16 bits). Rot keeps 16 bits up to Grit 0.25, then drops to 6 bits at Grit 1. **Changed
+  2026-11-04**: the dither used to be ±1 *step*, which made coarse steps a loud hiss. Grit sounded like noise, and in
+  the loop the string amplified it: Grit 1 with Rot wet hissed at −47 dBFS below ignition. Now coarse steps crunch:
+  the rounding is a distortion that follows the signal, a signal under half a step stores as silence, and the same
+  case measures −110 dBFS. The echo's bit loss comes with Wear: 16 down
   to 7 bits.
 - **Grit map**: Rot gets all of Grit; the echo's decimation gets 0.8×; echo Wear = the Wear knob × Grit (so Wear
   does nothing at Grit 0); the wavefold comes in past Grit 0.3.
 - **Echo**: time 20 ms–3.99 s (exponential knob). The tape glides to a new time over about 0.25 s. Feedback is
   0–1.25×, through the 800 Hz bandpass (Q 0.7, unity peak) and the soft clip: past about 0.8 on the knob it rings by
-  itself, by design. Wow is 0.15% at 0.55 Hz, flutter 0.06% band-limited noise. Wear adds hiss (up to about −45 dB),
+  itself, by design. Wow is 0.15% at 0.55 Hz, flutter 0.06% band-limited noise. Wear adds hiss (up to about −56 dB; it was −45 until 2026-11-04),
   dropouts (20–120 ms dips, about every 2 s at full Wear) and bit loss. **Freeze** stops writing the input and copies
   the tape onto itself at a whole-sample delay, so the loop plays unchanged indefinitely (no requantization, no
   filter). Return adds the echo's output to the feed mixer.
@@ -95,8 +99,7 @@ instrument behaves, and are worth the owner's ear.
   speed. Released, it goes back. (Read as "hold to step".)
 - **Starve**: the feedback gain goes to the floor (−60 dB) with a 4 ms time constant (at the floor within about
   35 ms, without a click), and back with 30 ms when it's let go.
-- **Output**: Speaker mode is a 2-pole HPF at 140 Hz, a 2-pole LPF at 9 kHz, then tanh saturation. Line is flat.
-  Then the limiter: −1 dBFS ceiling, instant attack (no lookahead: the gain drops at once to keep the frame at the
+- **Output**: flat (Speaker mode, a band-limit and saturation for the built-in driver, was cut). Then the limiter: −1 dBFS ceiling, instant attack (no lookahead: the gain drops at once to keep the frame at the
   ceiling), 80 ms release, then a clamp that also maps NaN/∞ to 0. MASTER comes after it, in fm1-base, as a gain
   ≤ 1. Nothing past −1 dBFS can leave (tested with 2 million frames of noise, 1e30, ∞ and NaN, and 58 s of
   everything at full).
@@ -107,13 +110,12 @@ instrument behaves, and are worth the owner's ear.
 
 - **Feedback steps**: 0.1 dB a detent within 2 dB of ignition, 0.5 within 6 dB, 1 dB beyond, rounded to 0.1 dB.
 - **Page knobs**: 0.01 a detent, 0.03 when 3 or more detents arrive in one frame (a fast turn). Discrete values
-  (scale, root, curve, sense, seed) step by one.
+  (scale, root, curve, seed) step by one.
 - **Pitch**: the root is C2 + Root (E2 by default, natural minor), OCT± is ±2 octaves, and a note outside 16–72 is
   folded by octaves. ALGO with no key held moves the drone a semitone per detent. When the last key is released,
   the string stays on its note and ALGO moves it from there. Fine tune is ±100 cents, 1 cent per detent.
-- **The latched feed** (ARP) keeps the highest feed level from the last ~130 ms before the release, because a lifting
-  key's pressure falls before the key lets go. Pressure feed: noise up to −12 dBFS into the string at full pressure
-  × Depth (squared).
+- **The key feed**: noise up to −12 dBFS into the string at full velocity × Depth (squared). The latch (ARP) keeps
+  the feed level the key had when it was let go.
 - **PLAY**: held = Starve. Two short taps (each under 250 ms, the second within 350 ms of the first) latch it, and the
   PLAY light turns red. A tap lets go.
 - **Recall (EDIT+SAVE)**: the 20 continuous values glide over 1 s (smoothstep); scale, root, octave, output mode,
@@ -173,5 +175,5 @@ Where fm1-base and the PRD disagree, fm1-base wins (as instructed). None of thes
    engine), each at −O2. The per-sample code is `static inline` in the module headers and chained in `engine.c`, so
    the hot loop is one unit.
 7. **The keys' sensing** is fm1-base's `lib/touch` (`APP_TOUCH`): the 20 analog-row keys F3–C5 have velocity and
-   pressure, and the top row (C#5–G5) has a velocity probe only. Trifid's playing keys and A#4 are all in the sensed
-   twenty except D5–G5, which play through the top row's velocity probe (no pressure: they feed from velocity).
+   pressure, and the top row (C#5–G5) has a velocity probe only. Trifid uses velocity alone, so every key behaves the
+   same (pressure is read but unused).

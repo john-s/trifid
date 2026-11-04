@@ -3,8 +3,7 @@
 /* A/B renders of the engine, natively: a WAV (16-bit stereo, 44,118 Hz) from settings on the command line.
  *   render OUT.wav [SECONDS] [name=value ...]
  * names: tf_params_t's (fb_db, note, fine, glide, body, drive, lpf, hpf, rot_mix, rot_decay, rot_smear, rot_jitter,
- * echo_send, echo_ret, echo_time, echo_fb, echo_wear, grit, seed_db, feed, out_mode 0 speaker / 1 line, starve,
- * freeze), plus margin=DB (the feedback set this far from the ignition threshold) and imp=AMP (a strike at the start).
+ * echo_send, echo_ret, echo_time, echo_fb, echo_wear, grit, seed_db, feed, starve, freeze), plus margin=DB (the feedback set this far from the ignition threshold) and imp=AMP (a strike at the start).
  * Built by tests/run_tests.sh into app/build/tests/render. */
 #include "tf_test.h"
 
@@ -35,7 +34,6 @@ int main(int argc, char **argv)
 #define F(n) else if (!strcmp(argv[a], #n)) p.n = v;
         if (!strcmp(argv[a], "margin")) margin = v;
         else if (!strcmp(argv[a], "imp")) { p.imp_seq++; p.imp_amp = v; }
-        else if (!strcmp(argv[a], "out_mode")) p.out_mode = (int32_t)v;
         else if (!strcmp(argv[a], "starve")) p.starve = (int32_t)v;
         else if (!strcmp(argv[a], "freeze")) p.freeze = (int32_t)v;
         F(fb_db) F(note) F(fine) F(glide) F(body) F(drive) F(lpf) F(hpf) F(rot_mix) F(rot_decay) F(rot_smear)

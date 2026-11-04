@@ -26,7 +26,6 @@ typedef struct {
     float grit;                         /* PRESETS, 0..1 */
     float seed_db;                      /* GLO: -120 .. -60 */
     float feed;                         /* the key's feed level, 0..1 (pressure or the held velocity) */
-    int32_t out_mode;                   /* OUT_SPEAKER, OUT_LINE */
     int32_t starve, freeze;
     float imp_amp;                      /* (before imp_seq: a word-by-word copy publishes the level first) */
     uint32_t imp_seq;                   /* + 1 for an impulse at imp_amp */

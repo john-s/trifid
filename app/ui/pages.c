@@ -7,24 +7,23 @@
  *   HOME  Plant  Body / Drive / LPF / HPF
  *   FX    Rot    Mix / Decay / Smear / Jitter
  *   SEQ   Echo   Send (EDIT: Return) / Time / Feedback / Wear
- *   SEL   Keys   Scale / Root / Glide / Pressure depth
- *   GLO   Setup  Output / Velocity curve / Pressure sense (EDIT: feed mode) / Seed level
+ *   SEL   Keys   Scale / Root / Glide / Depth (the feed's level at full velocity)
+ *   GLO   Setup  Velocity curve / Seed level (and the render's load, the xruns)
  *   PLAY hold: Starve; double-tap: latched (a tap lets go). REC: freeze the echo. ARP: latch the feed.
  *   ENV / LFO held: the echo time x 0.5 / x 2. EDIT: shift. SAVE: the snapshot; EDIT + SAVE: recall it.
  * Part of app.c (the unity build). */
 
 enum { KN_BODY, KN_DRIVE, KN_LPF, KN_HPF, KN_MIX, KN_DECAY, KN_SMEAR, KN_JITTER, KN_SEND, KN_RETURN, KN_TIME,
-       KN_EFB, KN_WEAR, KN_SCALE, KN_ROOT, KN_GLIDE, KN_DEPTH, KN_OUT, KN_CURVE, KN_SENSE, KN_FEEDMODE, KN_SEED,
-       NKN };
+       KN_EFB, KN_WEAR, KN_SCALE, KN_ROOT, KN_GLIDE, KN_DEPTH, KN_CURVE, KN_SEED, KN_NONE, NKN };
 static const char *const KN_NAME[NKN] = {"BODY", "DRIVE", "LPF", "HPF", "MIX", "DECAY", "SMEAR", "JITTER", "SEND",
-                                         "RETURN", "TIME", "FDBK", "WEAR", "SCALE", "ROOT", "GLIDE", "DEPTH", "OUTPUT",
-                                         "CURVE", "SENSE", "FEED", "SEED"};
+                                         "RETURN", "TIME", "FDBK", "WEAR", "SCALE", "ROOT", "GLIDE", "DEPTH", "CURVE",
+                                         "SEED", ""};
 static const uint8_t PAGE_KN[NPAGES][4] = {
     {KN_BODY, KN_DRIVE, KN_LPF, KN_HPF},
     {KN_MIX, KN_DECAY, KN_SMEAR, KN_JITTER},
     {KN_SEND, KN_TIME, KN_EFB, KN_WEAR},
     {KN_SCALE, KN_ROOT, KN_GLIDE, KN_DEPTH},
-    {KN_OUT, KN_CURVE, KN_SENSE, KN_SEED}};
+    {KN_CURVE, KN_SEED, KN_NONE, KN_NONE}};
 static const char *const PAGE_NAME[NPAGES] = {"PLANT", "ROT", "ECHO", "KEYS", "SETUP"};
 static const char *const PAGE_BTN[NPAGES] = {"HOME", "FX", "SEQ", "SEL", "GLO"};
 static const uint8_t PAGE_OF_BTN[NB] = {
@@ -46,8 +45,6 @@ static int knob_at(int page, int i, int shift)
     int k = PAGE_KN[page][i];
     if (shift && k == KN_SEND)
         return KN_RETURN;
-    if (shift && k == KN_SENSE)
-        return KN_FEEDMODE;
     return k;
 }
 
@@ -120,18 +117,13 @@ static void knob_text(int k, char *b)
     case KN_ROOT:
         text_cat(b, NOTE_NAME[st.root]);
         return;
-    case KN_OUT:
-        text_cat(b, st.out_mode == OUT_LINE ? "LINE" : "SPEAKER");
-        return;
     case KN_CURVE:
-    case KN_SENSE:
-        int_text(k == KN_CURVE ? st.vel_curve : st.press_sense, t);
-        if ((k == KN_CURVE ? st.vel_curve : st.press_sense) > 0)
+        int_text(st.vel_curve, t);
+        if (st.vel_curve > 0)
             text_cat(b, "+");
         text_cat(b, t);
         return;
-    case KN_FEEDMODE:
-        text_cat(b, st.feed_mode == FEED_VELOCITY ? "VELOCITY" : "PRESSURE");
+    case KN_NONE:
         return;
     case KN_SEED:
         dec_text(st.u.v.seed_db, 0, 0, b);
@@ -168,6 +160,8 @@ void app_say(const char *a, const char *b)
 
 static void knob_turn(int k, int32_t e)
 {
+    if (k == KN_NONE)                    /* (a free slot) */
+        return;
     float *f = knob_f(k);
     char t[16];
     int32_t a = e < 0 ? -e : e;
@@ -179,10 +173,7 @@ static void knob_turn(int k, int32_t e)
         switch (k) {
         case KN_SCALE: st.scale = (int8_t)clamp(st.scale + e, 0, NSCALES - 1); keys_retune(); break;
         case KN_ROOT: st.root = (int8_t)clamp(st.root + e, 0, 11); keys_retune(); break;
-        case KN_OUT: st.out_mode = e > 0 ? OUT_LINE : OUT_SPEAKER; break;
         case KN_CURVE: st.vel_curve = (int8_t)clamp(st.vel_curve + e, -5, 5); touch_curve(st.vel_curve); break;
-        case KN_SENSE: st.press_sense = (int8_t)clamp(st.press_sense + e, -5, 5); touch_sens(st.press_sense); break;
-        case KN_FEEDMODE: st.feed_mode = e > 0 ? FEED_VELOCITY : FEED_PRESSURE; break;
         case KN_SEED: st.u.v.seed_db = fm_clampf(st.u.v.seed_db + (float)e, -120.0f, -60.0f); break;
         default: break;
         }
