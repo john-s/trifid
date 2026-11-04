@@ -44,6 +44,7 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "seed")) *got = (int)st.u.v.seed_db;
     else if (!strcmp(what, "gliding")) *got = live.gliding;
     else if (!strcmp(what, "dirty")) *got = live.dirty;
+    else if (!strcmp(what, "cpupeak")) *got = (int)cpu_peak;
     else if (!strcmp(what, "peakdb")) *got = (int)(20.0f * fm_log2f(fm_maxf(eng.peak, 1e-6f)) * 0.30103f);
     else if (!strncmp(what, "knob100_", 8)) {
         float *f = knob_f(atoi(what + 8));

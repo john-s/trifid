@@ -226,3 +226,8 @@ expect starve 0
 expect starvelatch 0
 # (Grit at 75: Rot's coarse steps hiss a little into the loop, still quiet)
 expect peakdb <-45
+# Setup shows the render's load and the xruns
+tap GLO
+wait 600
+shot setup.png
+expect cpupeak <50
