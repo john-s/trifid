@@ -10,6 +10,7 @@
  *   grit100, scale, root, octave, outmode, feedmode, curve, sense, seed (dB)
  *   knob100_N   knob N (KN_*) x 100                     peakdb     the output's peak this block, dBFS
  *   gliding     a recall gliding                        dirty      changed since the last autosave
+ *   logsec, logslot, logseq   the autosave log: the sector and slot the next record goes to, its number
  * Part of app.c. */
 #include <string.h>
 #include <stdlib.h>
@@ -45,6 +46,9 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "gliding")) *got = live.gliding;
     else if (!strcmp(what, "dirty")) *got = live.dirty;
     else if (!strcmp(what, "cpupeak")) *got = (int)cpu_peak;
+    else if (!strcmp(what, "logsec")) *got = (int)lg.sec;
+    else if (!strcmp(what, "logslot")) *got = (int)lg.slot;
+    else if (!strcmp(what, "logseq")) *got = (int)lg.seq;
     else if (!strcmp(what, "peakdb")) *got = (int)(20.0f * fm_log2f(fm_maxf(eng.peak, 1e-6f)) * 0.30103f);
     else if (!strncmp(what, "knob100_", 8)) {
         float *f = knob_f(atoi(what + 8));

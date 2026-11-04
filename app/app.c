@@ -240,13 +240,15 @@ static void engine_start(void)
 }
 
 static void ui_boot(void);               /* ui/keys.c, ui/pages.c */
+static int log_boot(tf_state_t *s);      /* the autosave log, below */
 
 void app_init(void)
 {
     float th;
     engine_start();
     state_defaults(&st);
-    state_load(OBJ_AUTO, &st);          /* the last state, if there is one */
+    if (!log_boot(&st))                 /* the last state: the autosave log's newest, else (before the log) the store's */
+        state_load(OBJ_AUTO, &st);
     live.note = st.u.v.drone;
     live.time_mul = 1.0f;
     live.starve = live.starve_latch = live.freeze = live.latch = 0;
@@ -291,17 +293,126 @@ static void saves_poll(void)
     }
 }
 
+/* ------------------------------------------------------------ the autosave log --- */
+/* The autosave never erases while it plays. fm1-base's store erases a 4 KiB flash sector for every save, with the
+ * interrupts off for tens of ms: an xrun each time (the device showed it). A flash write holds them off for one
+ * 256-byte page only (well under a ms), inside the render's slack (its worst is 0.85 of 2.9 ms). So the last state
+ * goes into a log: two sectors of the data area, 32 slots of 128 bytes each; a save writes the next erased slot
+ * (one page), and the newest valid record wins at boot. The boot (silent anyway) erases the sector that does not
+ * hold the newest record: a session has 32 saves before it needs an erase, and the erase then waits for quiet. */
+#define LOG_SEC0 0x97000u                /* the data area's first two sectors (fm1-base plat.h: 0x97000..0xDFFFF) */
+#define LOG_SECTORS 2u
+#define LOG_SLOT 128u
+#define LOG_SLOTS (0x1000u / LOG_SLOT)
+#define LOG_MAGIC 0x4C465254u            /* "TRFL" */
+typedef struct {
+    uint32_t magic, seq, sum;
+    tf_state_t st;
+    uint8_t pad[LOG_SLOT - 12u - sizeof(tf_state_t)];
+} log_rec_t;
+_Static_assert(sizeof(log_rec_t) == LOG_SLOT, "a log record is one slot (inside one flash page)");
+static log_rec_t log_buf;                /* the record being written (the flash driver takes RAM) */
+static struct {
+    uint32_t sec, slot, seq;             /* where the next record goes, and its number */
+    uint8_t ready;
+} lg;
+
+static uint32_t log_sum(const tf_state_t *s)    /* FNV-1a over the state */
+{
+    const uint8_t *b = (const uint8_t *)s;
+    uint32_t h = 2166136261u, i;
+    for (i = 0; i < sizeof *s; i++)
+        h = (h ^ b[i]) * 16777619u;
+    return h;
+}
+static uint32_t log_at(uint32_t sec, uint32_t slot) { return LOG_SEC0 + sec * 0x1000u + slot * LOG_SLOT; }
+static int log_blank(const uint8_t *p, uint32_t n)
+{
+    while (n--)
+        if (*p++ != 0xFFu)
+            return 0;
+    return 1;
+}
+
+/* boot: the newest valid record into s (1), or none (0); the log made ready for this session's saves */
+static int log_boot(tf_state_t *s)
+{
+    uint32_t sec, slot, best_seq = 0, best_sec = 0, found = 0;
+    tf_state_t t;
+    for (sec = 0; sec < LOG_SECTORS; sec++)
+        for (slot = 0; slot < LOG_SLOTS; slot++) {
+            const log_rec_t *r = (const log_rec_t *)plat_data(log_at(sec, slot));
+            if (!r || r->magic != LOG_MAGIC || r->sum != log_sum(&r->st) || (found && r->seq <= best_seq))
+                continue;
+            t = r->st;
+            if (t.magic != TF_ST_MAGIC || t.version != TF_ST_VERSION || t.size != sizeof t)
+                continue;
+            found = 1;
+            best_seq = r->seq;
+            best_sec = sec;
+            *s = t;
+        }
+    if (found)
+        state_fix(s);
+    /* this session writes the other sector, from its first slot; the newest record stays where it is until then */
+    lg.sec = found ? (best_sec + 1u) % LOG_SECTORS : 0u;
+    lg.slot = 0;
+    lg.seq = best_seq + 1u;
+    {
+        const uint8_t *p = plat_data(log_at(lg.sec, 0));
+        lg.ready = p != 0;
+        if (p && !log_blank(p, 0x1000u))
+            lg.ready = plat_data_erase(log_at(lg.sec, 0)) == 0;
+    }
+    return (int)found;
+}
+
+/* a record of the state now; may_erase: the next sector may be erased first if this one is full (quiet only) */
+static int log_save(int may_erase)
+{
+    const log_rec_t *back;
+    int rc;
+    if (!lg.ready)
+        return -1;
+    if (lg.slot >= LOG_SLOTS) {          /* full: the other sector (its records all older) erased, when it may */
+        uint32_t next = (lg.sec + 1u) % LOG_SECTORS;
+        if (!may_erase)
+            return 1;                    /* (later, when it is quiet) */
+        if (plat_data_erase(log_at(next, 0)) != 0)
+            return -1;
+        lg.sec = next;
+        lg.slot = 0;
+    }
+    log_buf.magic = LOG_MAGIC;
+    log_buf.seq = lg.seq;
+    log_buf.st = st;
+    log_buf.sum = log_sum(&log_buf.st);
+    rc = plat_data_write(log_at(lg.sec, lg.slot), &log_buf, sizeof log_buf);
+    back = (const log_rec_t *)plat_data(log_at(lg.sec, lg.slot));
+    lg.slot++;                           /* (a failed slot is passed over: it is not erased any more) */
+    if (rc != 0 || !back || back->seq != lg.seq || back->sum != log_buf.sum)
+        return -1;
+    lg.seq++;
+    return 0;
+}
+
 static void autosave(void)
 {
     uint32_t now = plat_ms();
-    int loud = eng.peak > 0.003f;       /* above -50 dBFS */
+    int quiet = eng.peak < 0.001f, rc;   /* below -60 dBFS: an erase's silence (and its xrun) goes unheard */
     if (!live.dirty || now - live.changed_at < 4000u || live.gliding)
         return;
-    if (loud && live.saved_at && now - live.saved_at < 60000u)
-        return;
-    if (store_save(OBJ_AUTO) == 0) {
+    if (!saves.open)
+        saves.before = plat_xruns();     /* (any xrun a log write causes is counted with the saves') */
+    rc = log_save(quiet);
+    saves.open = 1;
+    saves.until = plat_ms() + 100u;
+    if (rc == 0) {
         live.dirty = 0;
         live.saved_at = now ? now : 1u;
+    } else if (rc < 0) {                 /* the log failed: fm1-base's store, as before (an erase) */
+        if (store_save(OBJ_AUTO) == 0)
+            live.dirty = 0;
     }
 }
 

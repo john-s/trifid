@@ -118,10 +118,19 @@ instrument behaves, and are worth the owner's ear.
   PLAY light turns red. A tap lets go.
 - **Recall (EDIT+SAVE)**: the 20 continuous values glide over 1 s (smoothstep); scale, root, octave, output mode,
   curve, sense and feed mode jump. Touching any control during the glide ends it there.
-- **Autosave (flag)**: an fm1-base store save erases a flash sector, and **fm1-base silences the audio during the
-  erase** (tens of ms). So the autosave waits until the controls have been still 4 s. While the output is louder
-  than −50 dBFS it saves at most once a minute. Over a long drone that's one short dropout a minute after a change.
-  The alternative is to save only when quiet and risk losing the last change at power-off.
+- **Autosave: an append-only log that never erases while it plays.** fm1-base's store erases a 4 KiB flash
+  sector on every save, with interrupts off for tens of ms, longer than an audio half (2.9 ms). The device confirmed
+  it: one xrun, and that xrun was a save (`XRUN 1 AT 1:54 SAVE 1`, with the longest render at 0.85 ms). So the last
+  state goes into a log in the data area: two sectors (0x97000, 0x98000), 32 slots of 128 bytes each. An autosave
+  writes the next erased slot, one flash page, and fm1-base holds interrupts off for one page at a time (typically
+  well under a millisecond, 3 ms at worst). Each record carries a sequence number and a checksum, and the newest
+  valid one wins at boot. The boot, silent anyway, erases the sector that doesn't hold the newest record, so a
+  session has 32 autosaves before it needs an erase. Past that, the erase waits until the output is below −60 dBFS
+  (for example, Starve). The autosave still waits until the controls have been still for 4 s. A state saved by an
+  older build in fm1-base's store (`OBJ_AUTO`) is read once if the log is empty, and is the fallback if a log write
+  ever fails.
+- **SAVE (the snapshot) still uses fm1-base's store**, so pressing it costs one short silence and one xrun. It's
+  deliberate and rare. Setup counts it under `SAVE`.
 - **Boot**: the lines are empty. Starve, Freeze and Latch are off. The feedback is the saved value or 6 dB below
   the threshold, whichever is lower. The rest of the saved state comes back as it was.
 - **Screen**: the header (the name, the note, the page; a message for 1.3 s after a change), then the gain-margin meter
