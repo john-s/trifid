@@ -188,6 +188,9 @@ static float threshold_db(void)
 }
 
 /* ---------------------------------------------------------------- render --- */
+/* the longest render, in plat_ticks24 ticks (Setup shows it against the budget: an audio half, APP_BLOCK frames) */
+static volatile uint32_t render_max;
+
 void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
 {
     static float l[APP_BLOCK], r[APP_BLOCK];
@@ -198,6 +201,7 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
             lr[i] = 0;
         return;
     }
+    uint32_t t0 = plat_ticks24(), dt;
     while (done < n) {                  /* (n is APP_BLOCK on the FM-1; the host may ask for any) */
         uint32_t k = n - done < APP_BLOCK ? n - done : APP_BLOCK;
         tf_engine_render(&eng, &prm, l, r, k, 0);
@@ -207,6 +211,9 @@ void app_render(int32_t *lr, uint32_t n, uint32_t master_q12)
         }
         done += k;
     }
+    dt = plat_ticks24() - t0;           /* the render's time, ticks (interrupts that cut in included) */
+    if (dt > render_max)
+        render_max = dt;
 }
 
 void app_panic(void)

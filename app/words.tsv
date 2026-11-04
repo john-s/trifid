@@ -15,3 +15,6 @@ MIN PENT	minor pentatonic
 HARM MIN	harmonic minor
 MIXOLYD	mixolydian
 CHROMA	chromatic
+PK	peak
+MAX	longest render
+XRUN	xruns

@@ -5,6 +5,43 @@
  * knobs' names and values). One level, no menus. Part of app.c (the unity build). */
 
 static uint32_t cpu_peak, boot_ms;       /* the render's most load since boot (Setup shows it) */
+static uint32_t xr_seen, xr_at;          /* the xruns counted so far, and when (ms) the last one came */
+
+/* Setup's figures: PK the most load since boot (% of the budget, smoothed over ~16 blocks), MAX the longest render
+ * (ms; the budget is an audio half, 2.9 ms), XRUN the late renders and when the last one came (minutes:seconds since
+ * boot), SAVE the ones a flash save caused */
+static void diag_text(char *d)
+{
+    char v[12];
+    uint32_t xr = plat_xruns(), us = render_max / PLAT_TICKS_PER_US, budget = APP_BLOCK * 1000000u / 44118u;
+    d[0] = 0;
+    text_cat(d, "PK ");
+    int_text((int32_t)cpu_peak, v);
+    text_cat(d, v);
+    text_cat(d, "% MAX ");
+    dec_text((float)us * 0.001f, 2, 0, v);
+    text_cat(d, v);
+    text_cat(d, "/");
+    dec_text((float)budget * 0.001f, 1, 0, v);
+    text_cat(d, v);
+    text_cat(d, "MS XRUN ");
+    int_text((int32_t)xr, v);
+    text_cat(d, v);
+    if (xr) {
+        uint32_t t = (xr_at - boot_ms) / 1000u;
+        text_cat(d, " AT ");
+        int_text((int32_t)(t / 60u), v);
+        text_cat(d, v);
+        text_cat(d, t % 60u < 10u ? ":0" : ":");
+        int_text((int32_t)(t % 60u), v);
+        text_cat(d, v);
+    }
+    if (saves.xruns) {
+        text_cat(d, " SAVE ");
+        int_text((int32_t)saves.xruns, v);
+        text_cat(d, v);
+    }
+}
 
 #define MARGIN_LO (-24.0f)               /* the meter's scale, dB */
 #define MARGIN_HI 12.0f
@@ -112,29 +149,17 @@ static void draw_bottom(void)
     char t[16];
     cv_begin(240, 56, C_BLACK);
     cv_rect(0, 0, 240, 1, C_LINE);
-    cv_text(8, 3, &FONT_XS, PAGE_BTN[st.page], C_GRAY);
-    cv_text(8 + text_w(&FONT_XS, PAGE_BTN[st.page]) + 6, 3, &FONT_XS, PAGE_NAME[st.page], C_HI);
+    if (st.page != PG_GLO || shift) {    /* (Setup's line is its figures: the header names the page) */
+        cv_text(8, 3, &FONT_XS, PAGE_BTN[st.page], C_GRAY);
+        cv_text(8 + text_w(&FONT_XS, PAGE_BTN[st.page]) + 6, 3, &FONT_XS, PAGE_NAME[st.page], C_HI);
+    }
     if (shift) {
         cv_text(232 - text_w(&FONT_XS, "EDIT"), 3, &FONT_XS, "EDIT", C_WHITE);
-    } else if (st.page == PG_GLO) {      /* Setup: the render's load (now, the most since boot) and the xruns */
-        char d[40], v[12];
+    } else if (st.page == PG_GLO) {      /* Setup: the render's load and time, the xruns, when the last one was */
+        char d[56];
         uint32_t xr = plat_xruns();
-        d[0] = 0;
-        text_cat(d, "CPU ");
-        int_text((int32_t)plat_cpu_pct(), v);
-        text_cat(d, v);
-        text_cat(d, "% PEAK ");
-        int_text((int32_t)cpu_peak, v);
-        text_cat(d, v);
-        text_cat(d, "% XRUN ");
-        int_text((int32_t)xr, v);
-        text_cat(d, v);
-        if (saves.xruns) {               /* how many of them a flash save caused */
-            text_cat(d, " SAVE ");
-            int_text((int32_t)saves.xruns, v);
-            text_cat(d, v);
-        }
-        cv_text(232 - text_w(&FONT_XS, d), 3, &FONT_XS, d, cpu_peak >= 50u || xr > saves.xruns ? C_WHITE : C_GRAY);
+        diag_text(d);
+        cv_text(232 - text_w(&FONT_T, d), 4, &FONT_T, d, cpu_peak >= 50u || xr > saves.xruns ? C_WHITE : C_GRAY);
     }
     for (i = 0; i < 4; i++) {
         int k = knob_at(st.page, i, shift);
@@ -168,15 +193,10 @@ static void speak(void)
             text_cat(t, v);
         }
         if (st.page == PG_GLO) {
-            text_cat(t, ". CPU ");
-            int_text((int32_t)cpu_peak, v);
-            text_cat(t, v);
-            text_cat(t, " PERCENT PEAK. XRUNS ");
-            int_text((int32_t)plat_xruns(), v);
-            text_cat(t, v);
-            text_cat(t, ", FROM SAVES ");
-            int_text((int32_t)saves.xruns, v);
-            text_cat(t, v);
+            char d[56];
+            diag_text(d);
+            text_cat(t, ". ");
+            text_cat(t, d);
         }
         ann_say(t, 0, ANN_NOW);
     }
@@ -207,8 +227,14 @@ void app_frame(void)
         last_head = head_key;
         draw_head();
     }
-    if (plat_cpu_pct() > cpu_peak && now - boot_ms > 3000u)   /* (the first seconds: boot's own work) */
+    if (now - boot_ms <= 3000u)          /* (the first seconds: boot's own work, not counted in the peaks) */
+        render_max = 0;
+    else if (plat_cpu_pct() > cpu_peak)
         cpu_peak = plat_cpu_pct();
+    if (plat_xruns() != xr_seen) {       /* an xrun: when */
+        xr_seen = plat_xruns();
+        xr_at = now;
+    }
     if (st.page == PG_GLO && now - stats_at >= 250u) {        /* Setup's load figures, four times a second */
         stats_at = now;
         ui.redraw_bottom = 1;
