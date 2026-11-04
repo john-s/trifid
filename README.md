@@ -21,7 +21,7 @@ below ignition it is (the white line is 0 dB). Under it is the output's scope.
 | ALGORITHM | the pitch (a semitone a detent) when no key is held; fine tune while one is |
 | PRESETS | Grit: Rot's decimation and steps, echo Wear, the wavefold. 0 is clean |
 | MASTER | the volume, after the limiter |
-| White keys F3–C5 | the scale, one degree each up from the root; the last held wins, with glide. Velocity strikes, pressure feeds noise |
+| White keys F3–G5 | the scale, one degree each up from the root; the last held wins, with glide. Velocity strikes, pressure feeds noise (D5–G5 have no pressure: their velocity feeds, held) |
 | A#4 | strike the held note again |
 | HOME / FX / SEQ / SEL / GLO | pages: Plant (Body, Drive, LPF, HPF), Rot (Mix, Decay, Smear, Jitter), Echo (Send / EDIT: Return, Time, Feedback, Wear), Keys (Scale, Root, Glide, Depth), Setup (Output, Velocity curve, Pressure sense / EDIT: feed mode, Seed) |
 | PLAY | Starve: hold to cut the loop; double-tap to latch, tap to let go |

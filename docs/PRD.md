@@ -65,14 +65,16 @@ controls update once per 128-frame block. The core is float at full rate; only s
 Of the 16 white and 11 black keys, the 20 keys F3–C5 sense velocity and pressure. C#5–G5 have velocity only, through
 a probe that compresses firm presses.
 
-- The **12 white keys F3–C5** play the chosen scale. Each key is the next scale degree up from the root, with glide.
-  OCT− and OCT+ shift by an octave. The string is monophonic: the last-held key wins.
+- All **16 white keys F3–G5** play the chosen scale (changed 2026-11-04: it was the 12 white keys F3–C5). Each key
+  is the next scale degree up from the root, with glide. OCT− and OCT+ shift by an octave. The string is monophonic:
+  the last-held key wins. The top four (D5–G5) have no pressure, so they feed from their strike velocity, held until
+  release, as in velocity mode.
 - **Pressure** on the held white key raises **only the noise feed level**, not the feedback gain. The gain belongs to
   the Feedback encoder. Release stops feeding.
 - **Velocity** on a white key fires an impulse at that strength.
 - **A#4** (the black key labeled GLO) re-strikes the held note. Velocity sets the impulse strength, the pitch doesn't
   change, and its pressure is unused.
-- Every other black key, plus the top four white keys D5–G5, is **reserved and does nothing**.
+- Every other black key is **reserved and does nothing**.
 - Pressure fallback (pressure sensing is still experimental on this hardware): a Setup option switches feeding to
   velocity mode, where strike velocity sets a feed level held until release. ARP latch works in both modes.
 
