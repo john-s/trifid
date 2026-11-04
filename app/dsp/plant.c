@@ -43,8 +43,6 @@ void plant_reset(plant_t *p)
     tf_svf_set(&p->hpc, 10.0f, 0.7071f, TF_FS);
     p->drive_g = 1.0f;
     p->drive_ig = 1.0f;
-    p->fold = 0.0f;
-    p->fold_k = p->fold_ik = 1.0f;
     p->seed = 0.0f;
     p->ret = 0.0f;
     p->g_a = tf_tau_a(0.02f, TF_FS);
@@ -119,9 +117,6 @@ void plant_set(plant_t *p, const plant_params_t *k)
     drv = fm_clampf(k->drive, 0.0f, 1.0f);
     p->drive_g = 1.0f + 9.0f * drv * drv * 1.5625f;                 /* 0.4: x 3.25; 1: x 15 */
     p->drive_ig = 1.0f / p->drive_g;
-    p->fold = fm_clampf(k->fold, 0.0f, 1.0f);
-    p->fold_k = 1.0f + 4.0f * p->fold;
-    p->fold_ik = 1.0f / p->fold_k;
     p->seed = fm_db2lin(fm_clampf(k->seed_db, -140.0f, -40.0f));
     p->press_target = fm_clampf(k->press, 0.0f, 1.0f);
     p->ret = fm_clampf(k->ret, 0.0f, 1.0f);

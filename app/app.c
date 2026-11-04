@@ -10,10 +10,10 @@
 #include "engine.h"
 
 /* ------------------------------------------------------------------ pool --- */
-/* the engine's lines, in the pool (docs/ram.md has the budget): 18,432 + 36,864 + 16,384 + 176,472 bytes */
+/* the engine's lines, in the pool (docs/ram.md has the budget): 18,432 + 36,864 + 24,800 + 176,472 bytes */
 static float str_buf[2][PLANT_STRING_LEN] PLAT_POOL;
 static float body_buf[2][PLANT_BODY_LEN] PLAT_POOL;
-static int16_t rot_buf[ROT_LEN] PLAT_POOL;
+static int16_t verb_buf[VERB_LEN] PLAT_POOL;
 static int16_t echo_buf[2][ECHO_LEN] PLAT_POOL;
 
 static tf_engine_t eng;
@@ -22,17 +22,18 @@ static volatile uint8_t eng_ready;
 
 /* ----------------------------------------------------------------- state --- */
 #define TF_ST_MAGIC 0x31465254u             /* "TRF1" */
-#define TF_ST_VERSION 1u
-enum { PG_HOME, PG_FX, PG_SEQ, PG_SEL, PG_GLO, NPAGES };
+#define TF_ST_VERSION 2u              /* 2: the reverb and Glitter in place of Rot and Grit (2026-11-04) */
+enum { PG_HOME, PG_VERB, PG_GLIT, PG_SEQ, PG_SEL, PG_GLO, NPAGES };   /* (FX pages VERB, GLIT) */
 /* everything a player sets; the floats glide on a recall (EDIT+SAVE), the small ones jump */
-#define TF_ST_NF 20
+#define TF_ST_NF 24
 typedef struct {
     uint32_t magic;
     uint16_t version, size;
     union {
         struct {
-            float fb_db, drone, fine, glide, body, drive, lpf, hpf, rot_mix, rot_decay, rot_smear, rot_jitter,
-                echo_send, echo_ret, echo_time, echo_fb, echo_wear, grit, seed_db, press_depth;
+            float fb_db, drone, fine, glide, body, drive, lpf, hpf, verb_mix, verb_decay, verb_depth, verb_rate,
+                glit_input, glit_amount, glit_output, glit_wet, echo_send, echo_ret, echo_time, echo_fb, echo_wear,
+                seed_db, press_depth, pressure;
         } v;
         float f[TF_ST_NF];
     } u;
@@ -57,18 +58,22 @@ static void state_defaults(tf_state_t *s)
     s->u.v.drive = d.drive;
     s->u.v.lpf = d.lpf;
     s->u.v.hpf = d.hpf;
-    s->u.v.rot_mix = d.rot_mix;
-    s->u.v.rot_decay = d.rot_decay;
-    s->u.v.rot_smear = d.rot_smear;
-    s->u.v.rot_jitter = d.rot_jitter;
+    s->u.v.verb_mix = d.verb_mix;
+    s->u.v.verb_decay = d.verb_decay;
+    s->u.v.verb_depth = d.verb_depth;
+    s->u.v.verb_rate = d.verb_rate;
+    s->u.v.glit_input = d.glit_input;
+    s->u.v.glit_amount = d.glit_amount;
+    s->u.v.glit_output = d.glit_output;
+    s->u.v.glit_wet = d.glit_wet;
     s->u.v.echo_send = d.echo_send;
     s->u.v.echo_ret = d.echo_ret;
     s->u.v.echo_time = d.echo_time;
     s->u.v.echo_fb = d.echo_fb;
     s->u.v.echo_wear = d.echo_wear;
-    s->u.v.grit = 0.0f;
     s->u.v.seed_db = -90.0f;
     s->u.v.press_depth = 0.7f;
+    s->u.v.pressure = 0.0f;
     s->scale = 1;                       /* natural minor */
     s->root = 4;                        /* E */
     s->octave = 0;
@@ -83,8 +88,8 @@ static void state_fix(tf_state_t *s)
 {
     tf_state_t d;
     int i;
-    static const float lo[TF_ST_NF] = {-60, 16, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -120, 0};
-    static const float hi[TF_ST_NF] = {12, 72, 100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -60, 1};
+    static const float lo[TF_ST_NF] = {-60, 16, -100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -120, 0, 0};
+    static const float hi[TF_ST_NF] = {12, 72, 100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -60, 1, 1};
     state_defaults(&d);
     for (i = 0; i < TF_ST_NF; i++)
         if (!(s->u.f[i] >= lo[i] && s->u.f[i] <= hi[i]))     /* (a NaN fails both) */
@@ -144,19 +149,22 @@ static void params_push(void)
     p.drive = st.u.v.drive;
     p.lpf = st.u.v.lpf;
     p.hpf = st.u.v.hpf;
-    p.rot_mix = st.u.v.rot_mix;
-    p.rot_decay = st.u.v.rot_decay;
-    p.rot_smear = st.u.v.rot_smear;
-    p.rot_jitter = st.u.v.rot_jitter;
+    p.verb_mix = st.u.v.verb_mix;
+    p.verb_decay = st.u.v.verb_decay;
+    p.verb_depth = st.u.v.verb_depth;
+    p.verb_rate = st.u.v.verb_rate;
+    p.glit_input = st.u.v.glit_input;
+    p.glit_amount = st.u.v.glit_amount;
+    p.glit_output = st.u.v.glit_output;
+    p.glit_wet = st.u.v.glit_wet;
     p.echo_send = st.u.v.echo_send;
     p.echo_ret = st.u.v.echo_ret;
     p.echo_time = st.u.v.echo_time;
     p.echo_fb = st.u.v.echo_fb;
     p.echo_wear = st.u.v.echo_wear;
     p.time_mul = live.time_mul;
-    p.grit = st.u.v.grit;
     p.seed_db = st.u.v.seed_db;
-    p.feed = live.feed;
+    p.feed = fm_minf(1.0f, live.feed + st.u.v.pressure);   /* the key's and PRESETS' (Pressure), summed */
     p.starve = live.starve;
     p.freeze = live.freeze;
     p.imp_amp = live.imp_amp;
@@ -227,7 +235,7 @@ static void engine_start(void)
     b.str[1] = str_buf[1];
     b.body[0] = body_buf[0];
     b.body[1] = body_buf[1];
-    b.rot = rot_buf;
+    b.verb = verb_buf;
     b.echo[0] = echo_buf[0];
     b.echo[1] = echo_buf[1];
     eng_ready = 0;
@@ -250,9 +258,11 @@ void app_init(void)
     live.starve = live.starve_latch = live.freeze = live.latch = 0;
     live.feed = 0.0f;
     params_push();
-    /* boot is quiet and safe: the lines are empty and the feedback starts at least 6 dB below ignition (the last
-     * setting, if it was lower) */
-    th = threshold_db();
+    /* boot is quiet and safe: the lines are empty, Pressure is 0, and the feedback starts at least 6 dB below
+     * ignition (the last setting, if it was lower). With the reverb in, the loop can ignite up to ~10 dB before the
+     * dry threshold (its resonances: tests/dsp), so up to 12 dB more is kept, by Mix x Decay */
+    st.u.v.pressure = 0.0f;
+    th = threshold_db() - 12.0f * st.u.v.verb_mix * st.u.v.verb_decay;
     if (st.u.v.fb_db > th - 6.0f)
         st.u.v.fb_db = fm_floorf((th - 6.0f) * 10.0f) * 0.1f;
     params_push();

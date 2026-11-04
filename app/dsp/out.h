@@ -1,20 +1,12 @@
 /* SPDX-License-Identifier: MIT
  * Copyright (C) 2026 john-s */
-/* The output: the Grit macro's map and the hard limiter that comes after everything and is never bypassed. Flat
+/* The output: the hard limiter that comes after everything and is never bypassed. Flat
  * otherwise (the Speaker voicing was cut on 2026-11-04: it was not useful). MASTER (the hardware pot) comes after this, in the platform, as a gain of at most 1. */
 #pragma once
 #include "dsp_util.h"
 
 #define OUT_CEIL 0.8913f                /* -1 dBFS: no sample ever leaves past it */
 
-/* what Grit (0..1) turns, everywhere: 0 is clean (no fold, no Wear, 16-bit storage, anti-aliased) */
-typedef struct {
-    float rot_grit;                     /* Rot's decimation and quantization */
-    float echo_grit;                    /* the echo's decimation */
-    float wear_scale;                   /* times the Wear knob */
-    float fold;                         /* the plant's wavefold */
-} grit_map_t;
-void out_grit_map(float grit, grit_map_t *m);
 
 typedef struct {
     float lim_g, lim_rel;               /* the limiter's gain, its release a sample */

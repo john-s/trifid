@@ -10,7 +10,7 @@
 #include "engine.h"
 
 static float tb_str[2][PLANT_STRING_LEN], tb_body[2][PLANT_BODY_LEN];
-static int16_t tb_rot[ROT_LEN], tb_echo[2][ECHO_LEN];
+static int16_t tb_verb[VERB_LEN], tb_echo[2][ECHO_LEN];
 static tf_engine_t tb_e;
 static int tb_fails, tb_checks;
 
@@ -19,7 +19,7 @@ static int tb_fails, tb_checks;
 
 static void tb_init(void)
 {
-    tf_buffers_t b = {{tb_str[0], tb_str[1]}, {tb_body[0], tb_body[1]}, tb_rot, {tb_echo[0], tb_echo[1]}};
+    tf_buffers_t b = {{tb_str[0], tb_str[1]}, {tb_body[0], tb_body[1]}, tb_verb, {tb_echo[0], tb_echo[1]}};
     tf_engine_init(&tb_e, &b);
 }
 

@@ -31,7 +31,7 @@ BASE, APP = ROOT / "base", ROOT / "app"
 OUT = APP / "build" / "ram"
 RAM_MAX, POOL_MAX, POOL_SPARE = 96 * 1024, 0x54000, 8192
 BUDGET = [("fm1-base spare", 8192), ("screen canvas (240x144x2)", 69120), ("strings 2x9,216", 18432),
-          ("body delays 2x18,432", 36864), ("Rot", 16384), ("echo 4 s stereo", 176472)]
+          ("body delays 2x18,432", 36864), ("reverb (was Rot, 16,384)", 24800), ("echo 4 s stereo", 176472)]
 
 
 def compile_s(src, out, defs):
@@ -151,7 +151,7 @@ def main():
     L.append("| Item | Budget | Measured |\n| --- | ---: | ---: |")
     by = {n: s for _, n, s in pool}
     meas = {"screen canvas (240x144x2)": by.get("cv_px", 0), "strings 2x9,216": by.get("str_buf", 0),
-            "body delays 2x18,432": by.get("body_buf", 0), "Rot": by.get("rot_buf", 0),
+            "body delays 2x18,432": by.get("body_buf", 0), "reverb (was Rot, 16,384)": by.get("verb_buf", 0),
             "echo 4 s stereo": by.get("echo_buf", 0)}
     for name, b in BUDGET:
         L.append(f"| {name} | {b:,} | {meas[name]:,} |" if name in meas else f"| {name} | {b:,} | (kept free) |")

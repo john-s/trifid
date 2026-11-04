@@ -1,8 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: MIT
 # Trifid's tests, all on the computer (no FM-1, no JieLi toolchain):
-#   dsp        the DSP modules natively (tests/dsp/dsp_test.c): ignition, limiter, Starve, Grit 0, numerics, pitch,
-#              the echo's Freeze
+#   dsp        the DSP modules natively (tests/dsp/dsp_test.c): ignition, limiter, Starve, bypasses clean, Glitter,
+#              the reverb, numerics, pitch, the echo's Freeze
 #   host       the whole app in fm1-base's host simulator (tests/scenarios/*.txt), screenshots in app/build/scenarios/
 #   web        the browser emulator builds (emcc; skipped without Emscripten)
 #   ram        the static RAM report against the pool budget (tools/ram_report.py; clang), into docs/ram.md
@@ -24,7 +24,7 @@ run() {
         FAIL=1
     fi
 }
-DSP="app/dsp/plant.c app/dsp/rot.c app/dsp/echo.c app/dsp/out.c app/dsp/engine.c"
+DSP="app/dsp/plant.c app/dsp/verb.c app/dsp/glitter.c app/dsp/echo.c app/dsp/out.c app/dsp/engine.c"
 CF="-O2 -ffp-contract=off -std=gnu99 -Wall -Wextra -Werror -Wno-unused-function -Wno-unused-variable -Iapp/dsp -Ibase/include"
 run dsp sh -c "$CC $CF -o $OUT/dsp_test tests/dsp/dsp_test.c $DSP -lm && $OUT/dsp_test"
 run render sh -c "$CC $CF -Wno-unused-parameter -o $OUT/render tests/dsp/render.c $DSP -lm && $CC $CF -o $OUT/bench tests/dsp/bench.c $DSP -lm && $OUT/bench"

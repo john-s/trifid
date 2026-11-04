@@ -7,7 +7,7 @@
  *   fine        cents                                   feed100    the feed level x 100
  *   imp         impulses fired                          page       PG_* (0 HOME .. 4 GLO)
  *   starve, starvelatch, freeze, latch                  timemul100 the echo time's multiplier x 100
- *   grit100, scale, root, octave, curve, seed (dB)
+ *   pressure100, scale, root, octave, curve, seed (dB)
  *   knob100_N   knob N (KN_*) x 100                     peakdb     the output's peak this block, dBFS
  *   gliding     a recall gliding                        dirty      changed since the last autosave
  *   logsec, logslot, logseq   the autosave log: the sector and slot the next record goes to, its number
@@ -34,7 +34,7 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "freeze")) *got = live.freeze;
     else if (!strcmp(what, "latch")) *got = live.latch;
     else if (!strcmp(what, "timemul100")) *got = (int)(live.time_mul * 100.0f + 0.5f);
-    else if (!strcmp(what, "grit100")) *got = (int)(st.u.v.grit * 100.0f + 0.5f);
+    else if (!strcmp(what, "pressure100")) *got = (int)(st.u.v.pressure * 100.0f + 0.5f);
     else if (!strcmp(what, "scale")) *got = st.scale;
     else if (!strcmp(what, "root")) *got = st.root;
     else if (!strcmp(what, "octave")) *got = st.octave;

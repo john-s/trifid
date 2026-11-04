@@ -97,7 +97,10 @@ static void draw_main(void)
     uint32_t w = eng.scope_w;
     cv_begin(240, 144, C_BLACK);
     /* the margin, in figures */
-    cv_text(8, 2, &FONT_XS, m >= 0.0f ? "IGNITED" : "BELOW IGNITION", m >= 0.0f ? C_WHITE : C_GRAY);
+    /* (with the reverb in, the figure is the dry loop's: the plate shifts the real point, mostly later) */
+    cv_text(8, 2, &FONT_XS, m >= 0.0f ? (st.u.v.verb_mix > 0.0f ? "IGNITED (DRY)" : "IGNITED")
+                                      : (st.u.v.verb_mix > 0.0f ? "BELOW IGNITION (DRY)" : "BELOW IGNITION"),
+            m >= 0.0f ? C_WHITE : C_GRAY);
     dec_text(m < -99.0f ? -99.0f : m, 1, 1, t);
     text_cat(t, " DB");
     cv_text(232 - text_w(&FONT_M, t), 0, &FONT_M, t, c);
@@ -118,10 +121,10 @@ static void draw_main(void)
     x = chip(x, "FREEZE", live.freeze);
     x = chip(x, "LATCH", live.latch);
     {
-        char g[12] = "GRIT ";
-        int_text((int32_t)(st.u.v.grit * 100.0f + 0.5f), t);
+        char g[12] = "PRESS ";
+        int_text((int32_t)(st.u.v.pressure * 100.0f + 0.5f), t);
         text_cat(g, t);
-        chip(x, g, st.u.v.grit > 0.0f);
+        chip(x, g, st.u.v.pressure > 0.0f);
     }
     /* the scope: the output, a point every 8 frames (44 ms across), centred at row 106 */
     cv_rect(0, 70, 240, 1, C_LINE);

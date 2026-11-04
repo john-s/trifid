@@ -27,9 +27,16 @@ to them.
     flash, FM bursts and FM cross-mod are v1.x. The hook is `tf_engine_render(..., ext)`, a per-sample signal summed
     into the feed mixer.
 11. **Fixed encoders**: SELECT = Feedback (fine/coarse near the threshold; momentum is v1.x), ALGORITHM = fine tune,
-    or pitch when no key is held, PRESETS = Grit, MASTER = the hardware volume pot after the limiter.
-12. **Grit at 0 is fully clean**: anti-aliased fs/4 paths, dithered 16-bit storage, no Wear, no wavefold.
+    or pitch when no key is held, PRESETS = Pressure (was Grit: decision 15), MASTER = the hardware volume pot
+    after the limiter.
+12. **Grit at 0 was fully clean**: anti-aliased fs/4 paths, dithered 16-bit storage, no Wear, no wavefold. Grit is
+    now replaced (decision 15); its successor is clean when bypassed (Glitter at Wet 0, the reverb at Mix 0, Wear 0).
 13. **Boot is always quiet and safe.**
+15. **Glitter replaces Grit, and a chorused reverb replaces Rot** (2026-11-04, after playing it: Grit mostly added
+    noise). Glitter is Airwindows' BitGlitter, after the loop and before the echo, with its own four controls. The
+    reverb is a chorused plate in the loop. FX pages between the two: Reverb (Mix / Decay / Mod / Rate), then
+    Glitter (Input / Glitter / Output / Wet). PRESETS, freed, became **Pressure**: a standing noise feed added to the
+    key's (the owner's idea). Echo Wear stands on its own knob, and the wavefold is gone.
 14. **Licensing**: concept credit to Audrey II (Synthux Academy: Nick Donaldson / Infrasonic Audio, Roey Tsemah;
     MIT). No DaisySP code at all, LGPL or otherwise. fm1-base and felucca-bsp stay MPL-2.0 in their submodule, and
     the JieLi AC79 SDK's Apache-2.0 notices stay with the three SDK files the package build fetches (never committed).
@@ -59,39 +66,50 @@ instrument behaves, and are worth the owner's ear.
 - **The drive is normalized**: `softclip(g·x)/g`. Drive moves the clip point, not the small-signal gain, so turning
   Drive never moves the ignition threshold. That keeps it the Feedback encoder's alone. A fixed makeup gain after
   the loop restores the level. Drive 0.4, the default, is ×3.25 into the clip.
-- **Every stage in the loop has slope ≤ 1**: the cubic soft clip, the triangle wavefold, and Rot's wet path scaled by
-  (1 − Decay) so its peak gain is 1. By the small-gain theorem the loop can't ignite while the linear loop's peak gain
-  is below 1, however long it runs. The tests check this: −3 dB margin is silent for 20 s at every tested pitch.
-- **The gain-margin meter** shows `feedback gain + the loop's peak gain`: the string's peak gain at each harmonic,
-  through the damping, DC block, LPF and HPF, maximised over the harmonics. The render works it out only when the
-  pitch or filters move. It's exact for the dry loop. With Rot wet the true threshold sits a little higher than the
-  meter says (the meter is a guarantee of silence, not a prediction of ignition). It leaves out the echo's Return
-  path, a secondary loop, and the echo's own self-oscillation above 1×.
+- **Every stage in the dry loop has slope ≤ 1**: the cubic soft clip and the filters. By the small-gain theorem the
+  dry loop can't ignite while its linear peak gain is below 1, however long it runs. The tests check this: −3 dB
+  margin is silent for 20 s at every tested pitch.
+- **The gain-margin meter** shows `feedback gain + the dry loop's peak gain`: the string's peak gain at each harmonic,
+  through the damping, DC block, LPF and HPF, maximised over the harmonics. It's worked out in the main loop, only
+  when the pitch or filters move. It's exact for the dry loop (Mix 0). With the reverb in, it says "(DRY)": the plate
+  moves the real ignition point. Measured over Mix 0.25–1 and Decay 0–1 at MIDI 40 and 64, the loop ignited between
+  12 dB after the meter's 0 (Mix 1, short decays: the wet adds back at random phase what the crossfade takes from
+  the dry) and 10 dB before it (Mix 1, Decay 1, MIDI 64: the plate's resonances). The error depends on pitch, so no
+  simple correction makes the meter exact. It leaves out the echo's Return, a secondary loop, and the echo's own
+  self-oscillation above 1×.
 - **Ignition sits about 18–19 dB below unity feedback** (the string rings +19 dB at its peaks). The Feedback range
   stays −60 to +12 dB as specified, so the top 30 dB is deep saturation.
 - **Low notes build slowly.** At 3 dB over ignition, MIDI 16 takes more than 10 s to reach full level (the string's
   ring time at 20 Hz is about 0.4 s); at +6 dB it's there within 10 s. That's physical, and it's left as is.
-- **Rot**: taps at 1009, 1787, 2861 and 4421 samples at fs/4 (primes, 91–401 ms). Decay goes to 0.95. Smear sets
-  the allpass to 20–80 samples, coefficient 0.5–0.75. Jitter 0 is none, then 1–3 samples, retargeted about every
-  0.7 s and smoothed over 0.5 s. The line's full scale is ±2. Rot is mono: the loop's mid goes in, and its wet goes to
-  both sides. Mix = 0 bypasses it entirely, and the line is cleared when it's turned back on.
-- **The fs/4 paths (Rot, the echo)**: at Grit 0, a 6th-order Butterworth at 3.8 kHz before decimation and linear
-  interpolation plus a 2-pole smoother after. Tones from 8.5 to 19 kHz fold down 63 dB below the input or more
-  (measured). Up to Grit 0.5 the pre-filter crossfades to a one-pole whose cutoff rises (3–17 kHz). From 0.5 to 1 it
-  crossfades to nothing, and the reconstruction goes to zero-order hold. (A 4th-order filter at 4.4 kHz only gave
-  about 25 dB.)
-- **Storage**: rounding with light TPDF dither, ±1 LSB of 16 bits whatever the step (a third-of-a-step sine survives
-  at full level at 16 bits). Rot keeps 16 bits up to Grit 0.25, then drops to 6 bits at Grit 1. **Changed
-  2026-11-04**: the dither used to be ±1 *step*, which made coarse steps a loud hiss. Grit sounded like noise, and in
-  the loop the string amplified it: Grit 1 with Rot wet hissed at −47 dBFS below ignition. Now coarse steps crunch:
-  the rounding is a distortion that follows the signal, a signal under half a step stores as silence, and the same
-  case measures −110 dBFS. The echo's bit loss comes with Wear: 16 down
-  to 7 bits.
-- **Grit map**: Rot gets all of Grit; the echo's decimation gets 0.8×; echo Wear = the Wear knob × Grit (so Wear
-  does nothing at Grit 0); the wavefold comes in past Grit 0.3.
+- **The reverb (verb.c)**: Dattorro's plate (input bandwidth, four input diffusers, a cross-fed figure-eight tank,
+  seven output taps a side), with every delay at 0.55 of Dattorro's sample counts at 29.8 kHz. The full plate at
+  44.1 kHz would need about 67 KB, so this one is about 37% of the original size, in 12,400 int16 samples (24,800
+  B). Lines run at the full rate, with no decimation. Decay maps to 0.2–0.97 (the exact float plate measures RT60
+  0.3–14 s). Damping is fixed at 0.35, bandwidth 0.9995. Mod sweeps the tank's two allpasses by up to ±6 samples
+  with a quadrature LFO at 0.05–5 Hz (Rate). Mix 0 bypasses it bit for bit, and the lines clear when it wakes.
+  - **The wet scale**: 1 / the plate's energy gain at that decay, measured on an exact float build
+    (`tests/dsp/verb_gain.c`, table in `verb.c`). So on average it neither adds nor removes loop gain. Scaling by
+    its *peak* gain instead (3.5× to 92×) would make it inaudible at long decays, and Mix would only choke the loop.
+  - **Storage**: rounded, with ±1 LSB TPDF dither on the tank's two recirculating writes. Plain rounding held the tail
+    in a limit cycle at about −66 dBFS at any decay. Truncation cut the tails short instead, because its bias toward
+    zero outweighs the decay at low levels. The dither leaves a floor near −87 dBFS.
+  - **Boot**: with the reverb in, the loop can ignite up to ~10 dB before the dry threshold, so boot keeps the
+    feedback up to 12 dB further below it, scaled by Mix × Decay.
+- **The echo's fs/4 path**: a 6th-order Butterworth at 3.8 kHz before decimation, and linear interpolation plus a
+  2-pole smoother after. Tones from 8.5 to 19 kHz fold down 52 dB below the input or more (measured). It's always
+  clean now: the Grit control that could make it alias is gone.
+- **The echo's storage**: rounding with light TPDF dither, ±1 LSB of 16 bits whatever the step. Wear's bit loss
+  coarsens the step (16 down to 7 bits), and the rounding then crunches with the signal rather than hissing. (An
+  earlier version dithered by ±1 *step*: Grit at full with Rot wet hissed at −47 dBFS below ignition. That's fixed,
+  and moot now that Grit is gone.)
+- **Glitter (glitter.c)**: BitGlitter ported line for line to single precision. Its steps' subtraction loops became a
+  ceiling, and its trailing 32-bit float dither was dropped. Its quirk stays: `lastSample` is never updated, so each
+  held sample is interpolated toward 0. Placement: after the loop's makeup gain, before the echo's send, so it
+  never touches ignition. Input and Output are BitGlitter's −18..+18 dB (with its /14 law), and Wet 0 bypasses it bit
+  for bit. At full Glitter the slower reducer holds each sample for 130 frames.
 - **Echo**: time 20 ms–3.99 s (exponential knob). The tape glides to a new time over about 0.25 s. Feedback is
   0–1.25×, through the 800 Hz bandpass (Q 0.7, unity peak) and the soft clip: past about 0.8 on the knob it rings by
-  itself, by design. Wow is 0.15% at 0.55 Hz, flutter 0.06% band-limited noise. Wear adds hiss (up to about −56 dB; it was −45 until 2026-11-04),
+  itself, by design. Wow is 0.15% at 0.55 Hz, flutter 0.06% band-limited noise. Wear (its own knob; 0 by default) adds hiss (up to about −56 dB),
   dropouts (20–120 ms dips, about every 2 s at full Wear) and bit loss. **Freeze** stops writing the input and copies
   the tape onto itself at a whole-sample delay, so the loop plays unchanged indefinitely (no requantization, no
   filter). Return adds the echo's output to the feed mixer.
@@ -118,7 +136,7 @@ instrument behaves, and are worth the owner's ear.
   the feed level the key had when it was let go.
 - **PLAY**: held = Starve. Two short taps (each under 250 ms, the second within 350 ms of the first) latch it, and the
   PLAY light turns red. A tap lets go.
-- **Recall (EDIT+SAVE)**: the 20 continuous values glide over 1 s (smoothstep); scale, root, octave, output mode,
+- **Recall (EDIT+SAVE)**: the 24 continuous values glide over 1 s (smoothstep); scale, root, octave,
   curve, sense and feed mode jump. Touching any control during the glide ends it there.
 - **Autosave: an append-only log that never erases while it plays.** fm1-base's store erases a 4 KiB flash
   sector on every save, with interrupts off for tens of ms, longer than an audio half (2.9 ms). The device confirmed
@@ -137,7 +155,7 @@ instrument behaves, and are worth the owner's ear.
   the threshold, whichever is lower. The rest of the saved state comes back as it was.
 - **Screen**: the header (the name, the note, the page; a message for 1.3 s after a change), then the gain-margin meter
   (−24 to +12 dB, ignition the white line, the set margin a tick under the bar, so Starve shows as the bar falling
-  away from it), then the feedback, the switches, Grit, and the output scope (a point every 8 frames, 44 ms across,
+  away from it), then the feedback, the switches, Pressure, and the output scope (a point every 8 frames, 44 ms across,
   with the feed level at the right edge), then the page's four names and values. The meter and scope redraw every
   other frame (about 30 a second), and the header and the page when they change.
 - **Lights**: the current page's button, PLAY (red when latched) for Starve, REC for Freeze, ARP for Latch, and held
@@ -171,7 +189,7 @@ Where fm1-base and the PRD disagree, fm1-base wins (as instructed). None of thes
 4. **Store saves silence the audio.** That's not in the PRD; it shapes the autosave (above).
 5. **"USB MIDI on"** needs nothing: USB MIDI is always on in fm1-base. `usb_audio_in`/`usb_audio_out` are written out
    in `app/fm1.toml` even though they're fm1-base's defaults.
-6. **`o2` "for the DSP unit"**: fm1-base's `o2` is a list of units. Trifid lists `dsp/*.c` (plant, rot, echo, out,
+6. **`o2` "for the DSP unit"**: fm1-base's `o2` is a list of units. Trifid lists `dsp/*.c` (plant, verb, glitter, echo, out,
    engine), each at −O2. The per-sample code is `static inline` in the module headers and chained in `engine.c`, so
    the hot loop is one unit.
 7. **The keys' sensing** is fm1-base's `lib/touch` (`APP_TOUCH`): the 20 analog-row keys F3–C5 have velocity and
