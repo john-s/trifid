@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+# Trifid's words for a screen reader (fm1-reader): the text on the screen <TAB> what to say.
+# url: https://john-s.github.io/trifid/words/
+TRIFID	trifid
+FB	feedback
+FDBK	feedback
+LPF	low pass
+HPF	high pass
+DB	decibels
+MS	milliseconds
+IGNITED	ignited
+BELOW IGNITION	below ignition
+MAJ PENT	major pentatonic
+MIN PENT	minor pentatonic
+HARM MIN	harmonic minor
+MIXOLYD	mixolydian
+CHROMA	chromatic

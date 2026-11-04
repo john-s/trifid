@@ -1,0 +1,228 @@
+# Trifid in fm1-base's host simulator: ./build.sh --host, then
+#   app/build/host/trifid_host tests/scenarios/basic.txt app/build/scenarios
+# boot: quiet and safe (the feedback at least 6 dB below ignition)
+wait 800
+shot boot.png
+expect setmargin10 <-59
+expect page 0
+expect starve 0
+expect freeze 0
+expect peakdb <-60
+# SELECT: up to just below ignition, fine near it (0.1 dB a detent within 2 dB)
+spin SELECT 9
+wait 50
+expect setmargin10 >-50
+spin SELECT 1
+spin SELECT 1
+wait 50
+expect setmargin10 >-21
+expect setmargin10 <-15
+# the drone pitch: ALGO with no key held (a semitone a detent)
+expect drone10 400
+spin ALGO 2
+wait 30
+expect drone10 420
+spin ALGO -2
+wait 30
+expect drone10 400
+# white key F3 (the root, E in minor: E2 = 40): its note, an impulse at its velocity; pressure feeds
+expect imp 0
+key 0 down 100 80
+wait 600
+expect note10 400
+expect imp 1
+expect feed100 >20
+shot key.png
+key 0 up
+wait 100
+expect feed100 0
+# the next white key is the next degree up (F#2), the last held wins, release goes back
+key 2 down 90
+wait 100
+expect note10 420
+key 4 down 90
+wait 100
+expect note10 430
+key 4 up
+wait 100
+expect note10 420
+key 2 up
+wait 100
+expect drone10 420
+# ALGO while a key is held: fine tune
+key 0 down 90
+wait 100
+spin ALGO 5
+wait 30
+expect fine 5
+spin ALGO -5
+wait 30
+expect fine 0
+key 0 up
+wait 100
+# A#4 (key 17) strikes again; the black keys and D5..G5 do nothing
+expect imp 4
+key 17 down 100
+wait 50
+key 17 up
+expect imp 5
+key 1 down 100
+wait 50
+key 1 up
+key 21 down 100
+wait 50
+key 21 up
+expect imp 5
+expect note10 400
+# OCT+: an octave up
+tap OCT+
+wait 30
+expect octave 1
+key 0 down 90
+wait 100
+expect note10 520
+key 0 up
+tap OCT-
+wait 30
+# pages: the four knobs of each; EDIT shifts SEQ's K1 to Return
+tap FX
+wait 30
+expect page 1
+turn K1 30 20
+wait 30
+expect knob100_4 30
+tap SEQ
+wait 30
+turn K1 20 20
+wait 30
+expect knob100_8 20
+press EDIT
+wait 30
+turn K1 10 20
+wait 30
+release EDIT
+expect knob100_9 10
+expect knob100_8 20
+shot seq.png
+tap SEL
+wait 30
+spin K1 2
+wait 30
+expect scale 3
+tap GLO
+wait 30
+spin K1 1
+wait 30
+expect outmode 1
+press EDIT
+spin K3 1
+release EDIT
+wait 30
+expect feedmode 1
+spin K3 -1
+spin K3 1
+wait 30
+expect feedmode 1
+press EDIT
+spin K3 -1
+release EDIT
+wait 30
+expect feedmode 0
+tap HOME
+wait 30
+turn PRESET 25 20
+wait 30
+expect grit100 25
+# ignition: SELECT up past the threshold, and the loop sings
+spin SELECT 60
+wait 50
+expect setmargin10 >0
+wav ignite.wav
+wait 4000
+wavstop
+expect margin10 >0
+expect peakdb >-30
+shot ignited.png
+# Starve: held cuts it; a double tap latches; a tap lets go
+press PLAY
+wait 400
+expect starve 1
+expect margin10 <-300
+release PLAY
+wait 30
+expect starve 0
+tap PLAY
+wait 100
+tap PLAY
+wait 30
+expect starvelatch 1
+expect starve 1
+wait 1500
+# (the loop is cut; the echo's tail rings on: Send was raised above)
+expect peakdb <-25
+tap PLAY
+wait 30
+expect starve 0
+expect starvelatch 0
+# REC: freeze; ARP: latch; ENV / LFO held: the echo time halved, doubled
+tap REC
+wait 30
+expect freeze 1
+tap REC
+expect freeze 0
+tap ARP
+wait 30
+expect latch 1
+key 0 down 100 80
+wait 400
+key 0 up
+wait 100
+expect feed100 >10
+tap ARP
+wait 30
+expect feed100 0
+press ENV
+wait 30
+expect timemul100 50
+release ENV
+press LFO
+wait 30
+expect timemul100 200
+release LFO
+wait 30
+expect timemul100 100
+# SAVE the snapshot; change things; EDIT+SAVE glides back over a second
+tap SAVE
+wait 50
+expect store_writes >0
+tap HOME
+turn K2 30 20
+wait 30
+expect knob100_1 70
+press EDIT
+tap SAVE
+release EDIT
+wait 200
+expect gliding 1
+wait 1200
+expect gliding 0
+expect knob100_1 40
+# the autosave keeps the last state across a power cycle (it waits for quiet: Starve latched); boot is still quiet
+tap PLAY
+wait 100
+tap PLAY
+wait 30
+expect starvelatch 1
+turn K2 -10 20
+wait 6000
+expect dirty 0
+reboot
+wait 800
+expect knob100_1 30
+expect grit100 25
+expect scale 3
+expect setmargin10 <-59
+expect starve 0
+expect starvelatch 0
+# (Grit at 75: Rot's coarse steps hiss a little into the loop, still quiet)
+expect peakdb <-45
