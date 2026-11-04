@@ -259,6 +259,31 @@ void app_init(void)
 /* ------------------------------------------------------- save and recall --- */
 /* a save erases a flash sector, and fm1-base silences the audio meanwhile (tens of ms): the autosave waits until the
  * controls have been still 4 s, and while the loop is loud it saves at most once a minute */
+/* a save erases a flash sector with the interrupts off, longer than an audio half: the render after it is late, an
+ * xrun. They are counted apart (Setup shows them), so the ones a save did not cause stand out */
+static struct {
+    uint32_t before, until;             /* the xruns before a save; when its window closes */
+    uint32_t xruns;                     /* the xruns saves caused */
+    uint8_t open;
+} saves;
+static int store_save(uint32_t obj)
+{
+    int rc;
+    if (!saves.open)
+        saves.before = plat_xruns();
+    rc = plat_store_save(obj, &st, sizeof st);
+    saves.open = 1;
+    saves.until = plat_ms() + 100u;     /* (the late render comes as soon as the interrupts are back) */
+    return rc;
+}
+static void saves_poll(void)
+{
+    if (saves.open && (int32_t)(plat_ms() - saves.until) >= 0) {
+        saves.open = 0;
+        saves.xruns += plat_xruns() - saves.before;
+    }
+}
+
 static void autosave(void)
 {
     uint32_t now = plat_ms();
@@ -267,7 +292,7 @@ static void autosave(void)
         return;
     if (loud && live.saved_at && now - live.saved_at < 60000u)
         return;
-    if (plat_store_save(OBJ_AUTO, &st, sizeof st) == 0) {
+    if (store_save(OBJ_AUTO) == 0) {
         live.dirty = 0;
         live.saved_at = now ? now : 1u;
     }
@@ -275,7 +300,7 @@ static void autosave(void)
 
 static void snapshot_save(void)
 {
-    if (plat_store_save(OBJ_SNAP, &st, sizeof st) == 0)
+    if (store_save(OBJ_SNAP) == 0)
         app_say("SAVED", "SNAPSHOT");
     else
         app_say("SAVE", "FAILED");

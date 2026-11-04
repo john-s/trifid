@@ -53,7 +53,7 @@ static int32_t chip(int32_t x, const char *s, int on)
 
 static void draw_main(void)
 {
-    float m = eng.margin_db, set_m = st.u.v.fb_db + eng.c_peak;     /* (the peak the render worked out) */
+    float m = eng.margin_db, set_m = st.u.v.fb_db + eng.c_peak;     /* (tf_engine_meter's) */
     int32_t x0 = meter_x(MARGIN_LO), xz = meter_x(0.0f), xm = meter_x(m), xs = meter_x(set_m), i, x;
     uint16_t c = m >= 0.0f ? C_WHITE : m > -6.0f ? C_HI : C_AMB;
     char t[24];
@@ -129,7 +129,12 @@ static void draw_bottom(void)
         text_cat(d, "% XRUN ");
         int_text((int32_t)xr, v);
         text_cat(d, v);
-        cv_text(232 - text_w(&FONT_XS, d), 3, &FONT_XS, d, cpu_peak >= 50u || xr ? C_WHITE : C_GRAY);
+        if (saves.xruns) {               /* how many of them a flash save caused */
+            text_cat(d, " SAVE ");
+            int_text((int32_t)saves.xruns, v);
+            text_cat(d, v);
+        }
+        cv_text(232 - text_w(&FONT_XS, d), 3, &FONT_XS, d, cpu_peak >= 50u || xr > saves.xruns ? C_WHITE : C_GRAY);
     }
     for (i = 0; i < 4; i++) {
         int k = knob_at(st.page, i, shift);
@@ -168,6 +173,9 @@ static void speak(void)
             text_cat(t, v);
             text_cat(t, " PERCENT PEAK. XRUNS ");
             int_text((int32_t)plat_xruns(), v);
+            text_cat(t, v);
+            text_cat(t, ", FROM SAVES ");
+            int_text((int32_t)saves.xruns, v);
             text_cat(t, v);
         }
         ann_say(t, 0, ANN_NOW);

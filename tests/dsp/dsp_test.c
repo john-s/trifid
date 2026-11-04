@@ -136,6 +136,7 @@ static void test_starve(void)
     lastg = tb_e.plant.g;
     for (i = 0; i < 12u; i++) {                /* 35 ms, watched block by block */
         tf_engine_render(&tb_e, &p, l, r, TF_BLOCK, 0);
+        tf_engine_meter(&tb_e, &p);
         if (fabsf(tb_e.plant.g - lastg) > maxstep)
             maxstep = fabsf(tb_e.plant.g - lastg);
         lastg = tb_e.plant.g;

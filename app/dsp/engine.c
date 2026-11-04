@@ -87,6 +87,22 @@ static void map(tf_engine_t *e, const tf_params_t *p, plant_params_t *pp, rot_pa
     (void)e;
 }
 
+/* the meter, from the main loop (its sums are too heavy for the audio interrupt): the loop's peak gain, worked out
+ * again only when the pitch or the filters moved, plus the feedback gain the render has now */
+void tf_engine_meter(tf_engine_t *e, const tf_params_t *p)
+{
+    float note = e->note_now, lpf = tf_lpf_hz(p->lpf), hpf = tf_hpf_hz(p->hpf);
+    if (fm_fabsf(note - e->c_note) > 0.02f || fm_fabsf(lpf - e->c_lpf) > 1.0f || fm_fabsf(hpf - e->c_hpf) > 0.1f) {
+        tf_params_t q = *p;
+        e->c_note = note;
+        e->c_lpf = lpf;
+        e->c_hpf = hpf;
+        q.note = note;
+        e->c_peak = -tf_engine_threshold_db(e, &q);
+    }
+    e->margin_db = 20.0f * fm_log2f(fm_maxf(e->plant.g, 1e-6f)) * 0.30103f + e->c_peak;
+}
+
 float tf_engine_threshold_db(tf_engine_t *e, const tf_params_t *p)
 {
     plant_params_t pp;
@@ -104,7 +120,7 @@ void tf_engine_render(tf_engine_t *e, const tf_params_t *p, float *l, float *r, 
     rot_params_t rp;
     echo_params_t ep;
     plant_t *pl = &e->plant;
-    float glide = tf_glide_s(p->glide), makeup, peak_db;
+    float glide = tf_glide_s(p->glide), makeup;
     uint32_t i;
     if (!e->primed) {                   /* the first block: the string starts at its note, no glide from nowhere */
         e->note_now = p->note;
@@ -161,15 +177,5 @@ void tf_engine_render(tf_engine_t *e, const tf_params_t *p, float *l, float *r, 
     out_sanitize(&e->out);
     e->ret_l = tf_clean(e->ret_l);
     e->ret_r = tf_clean(e->ret_r);
-    /* the meter: the loop's peak gain is worked out again only when what sets it moved */
-    if (fm_fabsf(pl->note - e->c_note) > 0.02f || fm_fabsf(pp.lpf_hz - e->c_lpf) > 1.0f ||
-        fm_fabsf(pp.hpf_hz - e->c_hpf) > 0.1f) {
-        e->c_note = pl->note;
-        e->c_lpf = pp.lpf_hz;
-        e->c_hpf = pp.hpf_hz;
-        e->c_peak = plant_loop_peak_db(pl);
-    }
-    peak_db = e->c_peak;
-    e->margin_db = 20.0f * fm_log2f(fm_maxf(pl->g, 1e-6f)) * 0.30103f + peak_db;
     e->peak = e->out.peak;
 }

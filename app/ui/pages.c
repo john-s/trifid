@@ -354,6 +354,8 @@ static void input(void)
     params_push();
     lights();
     autosave();
+    saves_poll();
+    tf_engine_meter(&eng, &prm);
 }
 
 void app_input_only(void) { input(); }

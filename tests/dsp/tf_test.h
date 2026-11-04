@@ -47,6 +47,7 @@ static tb_run_t tb_run(const tf_params_t *p, double s, double tail, double *keep
             }
         }
     }
+    tf_engine_meter(&tb_e, p);
     o.rms_db = 10.0 * log10(sum / (cnt ? cnt : 1) + 1e-30);
     o.peak_db = 20.0 * log10(o.peak + 1e-30);
     return o;
