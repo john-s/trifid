@@ -1,16 +1,18 @@
 /* SPDX-License-Identifier: MIT
  * Copyright (C) 2026 john-s */
-/* Trifid's engine: the plant, Rot, the echo and the output, chained per sample; the controls once a block.
+/* Trifid's engine: the plant, the reverb, Glitter, the echo and the output, chained per sample; the controls once a
+ * block.
  *
- *   plant_tick_a -> Rot (crossfade) -> plant_tick_b (gain, body) ... the loop
- *                                  \-> x makeup -> + echo (send in, wet out; its output back to the feed) -> out
+ *   plant_tick_a -> reverb (crossfade) -> plant_tick_b (gain, body) ... the loop
+ *                                     \-> x makeup -> Glitter -> + echo (send in, wet out; back to the feed) -> out
  *
  * The UI (main loop) writes tf_params_t in knob units (0..1 for most) and reads back the meters; the render reads
  * the parameters once a block. Each field is a 32-bit word written whole, so no lock is needed. Events (an impulse)
  * go through a sequence number. No platform calls: tests/dsp and tools render it natively. */
 #pragma once
 #include "plant.h"
-#include "rot.h"
+#include "verb.h"
+#include "glitter.h"
 #include "echo.h"
 #include "out.h"
 
@@ -20,12 +22,12 @@ typedef struct {
     float fine;                         /* cents, -100 .. +100 */
     float glide;                        /* 0..1: 0 .. 2 s */
     float body, drive, lpf, hpf;        /* HOME, 0..1 */
-    float rot_mix, rot_decay, rot_smear, rot_jitter;   /* FX, 0..1 */
+    float verb_mix, verb_decay, verb_depth, verb_rate;   /* FX (the reverb), 0..1 */
+    float glit_input, glit_amount, glit_output, glit_wet;   /* FX again (Glitter), 0..1 */
     float echo_send, echo_ret, echo_time, echo_fb, echo_wear;   /* SEQ, 0..1 */
     float time_mul;                     /* ENV / LFO held: 0.5, 2; else 1 */
-    float grit;                         /* PRESETS, 0..1 */
     float seed_db;                      /* GLO: -120 .. -60 */
-    float feed;                         /* the key's feed level, 0..1 (pressure or the held velocity) */
+    float feed;                         /* the feed level, 0..1: the key's (velocity, held) and PRESETS', summed */
     int32_t starve, freeze;
     float imp_amp;                      /* (before imp_seq: a word-by-word copy publishes the level first) */
     uint32_t imp_seq;                   /* + 1 for an impulse at imp_amp */
@@ -34,7 +36,8 @@ typedef struct {
 #define TF_SCOPE_N 240u
 typedef struct {
     plant_t plant;
-    rot_t rot;
+    verb_t verb;
+    glitter_t glit;
     echo_t echo;
     out_t out;
     float note_now;                     /* the glide's position */
@@ -58,10 +61,10 @@ static inline float tf_echo_s(float k) { return ECHO_MIN_S * fm_exp2f(fm_clampf(
 static inline float tf_echo_fb(float k) { return 1.25f * fm_clampf(k, 0.0f, 1.0f); }
 static inline float tf_glide_s(float k) { float c = fm_clampf(k, 0.0f, 1.0f); return 2.0f * c * c; }
 
-/* buffers: the app's (the pool on the FM-1); sizes PLANT_STRING_LEN, PLANT_BODY_LEN, ROT_LEN, ECHO_LEN */
+/* buffers: the app's (the pool on the FM-1); sizes PLANT_STRING_LEN, PLANT_BODY_LEN, VERB_LEN, ECHO_LEN */
 typedef struct {
     float *str[2], *body[2];
-    int16_t *rot, *echo[2];
+    int16_t *verb, *echo[2];
 } tf_buffers_t;
 
 void tf_engine_init(tf_engine_t *e, const tf_buffers_t *b);

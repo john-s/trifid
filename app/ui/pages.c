@@ -3,9 +3,9 @@
 /* The controls (docs/PRD.md, Controls): the fixed encoders, the five pages of four knobs, the buttons.
  *   SELECT   Feedback, the ignition control: 0.1 dB a detent within 2 dB of ignition, 0.5 within 6, else 1
  *   ALGO     fine tune while a key plays; the pitch (a semitone a detent) when none does
- *   PRESETS  Grit
+ *   PRESETS  Pressure: a standing noise feed, added to the key's
  *   HOME  Plant  Body / Drive / LPF / HPF
- *   FX    Rot    Mix / Decay / Smear / Jitter
+ *   FX    Reverb  Mix / Decay / Mod (depth) / Rate; FX again: Glitter  Input / Glitter / Output / Wet
  *   SEQ   Echo   Send (EDIT: Return) / Time / Feedback / Wear
  *   SEL   Keys   Scale / Root / Glide / Depth (the feed's level at full velocity)
  *   GLO   Setup  Velocity curve / Seed level (and the render's load, the xruns)
@@ -13,21 +13,24 @@
  *   ENV / LFO held: the echo time x 0.5 / x 2. EDIT: shift. SAVE: the snapshot; EDIT + SAVE: recall it.
  * Part of app.c (the unity build). */
 
-enum { KN_BODY, KN_DRIVE, KN_LPF, KN_HPF, KN_MIX, KN_DECAY, KN_SMEAR, KN_JITTER, KN_SEND, KN_RETURN, KN_TIME,
-       KN_EFB, KN_WEAR, KN_SCALE, KN_ROOT, KN_GLIDE, KN_DEPTH, KN_CURVE, KN_SEED, KN_NONE, NKN };
-static const char *const KN_NAME[NKN] = {"BODY", "DRIVE", "LPF", "HPF", "MIX", "DECAY", "SMEAR", "JITTER", "SEND",
-                                         "RETURN", "TIME", "FDBK", "WEAR", "SCALE", "ROOT", "GLIDE", "DEPTH", "CURVE",
-                                         "SEED", ""};
+enum { KN_BODY, KN_DRIVE, KN_LPF, KN_HPF, KN_VMIX, KN_VDECAY, KN_VMOD, KN_VRATE, KN_GIN, KN_GLIT, KN_GOUT, KN_GWET,
+       KN_SEND, KN_RETURN, KN_TIME, KN_EFB, KN_WEAR, KN_SCALE, KN_ROOT, KN_GLIDE, KN_DEPTH, KN_CURVE, KN_SEED, KN_NONE,
+       NKN };
+static const char *const KN_NAME[NKN] = {"BODY", "DRIVE", "LPF", "HPF", "MIX", "DECAY", "MOD", "RATE", "INPUT",
+                                         "GLITTER", "OUTPUT", "WET", "SEND", "RETURN", "TIME", "FDBK", "WEAR", "SCALE",
+                                         "ROOT", "GLIDE", "DEPTH", "CURVE", "SEED", ""};
 static const uint8_t PAGE_KN[NPAGES][4] = {
     {KN_BODY, KN_DRIVE, KN_LPF, KN_HPF},
-    {KN_MIX, KN_DECAY, KN_SMEAR, KN_JITTER},
+    {KN_VMIX, KN_VDECAY, KN_VMOD, KN_VRATE},
+    {KN_GIN, KN_GLIT, KN_GOUT, KN_GWET},
     {KN_SEND, KN_TIME, KN_EFB, KN_WEAR},
     {KN_SCALE, KN_ROOT, KN_GLIDE, KN_DEPTH},
     {KN_CURVE, KN_SEED, KN_NONE, KN_NONE}};
-static const char *const PAGE_NAME[NPAGES] = {"PLANT", "ROT", "ECHO", "KEYS", "SETUP"};
-static const char *const PAGE_BTN[NPAGES] = {"HOME", "FX", "SEQ", "SEL", "GLO"};
+static const char *const PAGE_NAME[NPAGES] = {"PLANT", "REVERB", "GLITTER", "ECHO", "KEYS", "SETUP"};
+static const char *const PAGE_BTN[NPAGES] = {"HOME", "FX", "FX", "SEQ", "SEL", "GLO"};
+/* the page each button opens (FX: the reverb, then each press the next effect page) */
 static const uint8_t PAGE_OF_BTN[NB] = {
-    [B_HOME] = PG_HOME + 1, [B_FX] = PG_FX + 1, [B_SEQ] = PG_SEQ + 1, [B_SEL] = PG_SEL + 1, [B_GLO] = PG_GLO + 1};
+    [B_HOME] = PG_HOME + 1, [B_FX] = PG_VERB + 1, [B_SEQ] = PG_SEQ + 1, [B_SEL] = PG_SEL + 1, [B_GLO] = PG_GLO + 1};
 
 static struct {
     uint32_t btn;                        /* held at the last poll */
@@ -55,10 +58,14 @@ static float *knob_f(int k)              /* a 0..1 knob's value */
     case KN_DRIVE: return &st.u.v.drive;
     case KN_LPF: return &st.u.v.lpf;
     case KN_HPF: return &st.u.v.hpf;
-    case KN_MIX: return &st.u.v.rot_mix;
-    case KN_DECAY: return &st.u.v.rot_decay;
-    case KN_SMEAR: return &st.u.v.rot_smear;
-    case KN_JITTER: return &st.u.v.rot_jitter;
+    case KN_VMIX: return &st.u.v.verb_mix;
+    case KN_VDECAY: return &st.u.v.verb_decay;
+    case KN_VMOD: return &st.u.v.verb_depth;
+    case KN_VRATE: return &st.u.v.verb_rate;
+    case KN_GIN: return &st.u.v.glit_input;
+    case KN_GLIT: return &st.u.v.glit_amount;
+    case KN_GOUT: return &st.u.v.glit_output;
+    case KN_GWET: return &st.u.v.glit_wet;
     case KN_SEND: return &st.u.v.echo_send;
     case KN_RETURN: return &st.u.v.echo_ret;
     case KN_TIME: return &st.u.v.echo_time;
@@ -103,6 +110,15 @@ static void knob_text(int k, char *b)
         }
         return;
     }
+    case KN_VRATE:
+        dec_text(0.05f * fm_exp2f(6.643856f * v), 2, 0, b);    /* (verb.c's map: 0.05 .. 5 Hz) */
+        text_cat(b, "HZ");
+        return;
+    case KN_GIN:
+    case KN_GOUT:
+        dec_text(v * 36.0f - 18.0f, 0, 1, b);                 /* (glitter.c's map: -18 .. +18 dB) */
+        text_cat(b, "DB");
+        return;
     case KN_EFB:
         dec_text(tf_echo_fb(v), 2, 0, b);
         text_cat(b, "X");
@@ -217,15 +233,16 @@ static void algo_turn(int32_t e)
     ui.redraw_head = 1;
 }
 
-static void grit_turn(int32_t e)
+/* PRESETS: Pressure, a standing noise feed added to the key's (a hand on the excitation; 0 at every boot) */
+static void pressure_turn(int32_t e)
 {
     char t[8];
     int32_t a = e < 0 ? -e : e;
     live.gliding = 0;
-    st.u.v.grit = fm_clampf(st.u.v.grit + (float)e * (a >= 3 ? 0.03f : 0.01f), 0.0f, 1.0f);
+    st.u.v.pressure = fm_clampf(st.u.v.pressure + (float)e * (a >= 3 ? 0.03f : 0.01f), 0.0f, 1.0f);
     mark();
-    int_text((int32_t)(st.u.v.grit * 100.0f + 0.5f), t);
-    app_say("GRIT", t);
+    int_text((int32_t)(st.u.v.pressure * 100.0f + 0.5f), t);
+    app_say("PRESSURE", t);
 }
 
 static void octave_step(int32_t d)
@@ -251,7 +268,10 @@ static void buttons_poll(void)
         if (!(down >> k & 1u))
             continue;
         if (PAGE_OF_BTN[k]) {
-            st.page = (int8_t)(PAGE_OF_BTN[k] - 1);
+            if (k == B_FX && (st.page == PG_VERB || st.page == PG_GLIT))
+                st.page = st.page == PG_VERB ? PG_GLIT : PG_VERB;   /* FX again: the next effect page */
+            else
+                st.page = (int8_t)(PAGE_OF_BTN[k] - 1);
             mark();
             app_say(PAGE_NAME[st.page], "");
             ui.redraw_bottom = 1;
@@ -305,7 +325,7 @@ static void encoders_poll(void)
     if ((e = plat_enc(EN_ALGO)) != 0)
         algo_turn(e);
     if ((e = plat_enc(EN_PRESET)) != 0)
-        grit_turn(e);
+        pressure_turn(e);
     for (i = 0; i < 4; i++)
         if ((e = plat_enc(EN_K1 + i)) != 0)
             knob_turn(knob_at(st.page, i, shift), e);
@@ -315,8 +335,8 @@ static void lights(void)
 {
     static uint32_t last_b = 0xFFFFFFFFu, last_k = 0xFFFFFFFFu;
     uint32_t b = 0, k = kb.keys & KEYS_LIT_MASK;
-    b |= 1u << (st.page == PG_HOME ? B_HOME : st.page == PG_FX ? B_FX : st.page == PG_SEQ ? B_SEQ
-                : st.page == PG_SEL ? B_SEL : B_GLO);
+    b |= 1u << (st.page == PG_HOME ? B_HOME : st.page == PG_VERB || st.page == PG_GLIT ? B_FX
+                : st.page == PG_SEQ ? B_SEQ : st.page == PG_SEL ? B_SEL : B_GLO);
     if (live.starve)
         b |= 1u << B_PLAY;
     if (live.freeze)

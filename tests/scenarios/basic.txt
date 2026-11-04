@@ -100,6 +100,14 @@ wait 30
 tap FX
 wait 30
 expect page 1
+# FX again: Glitter (and again: back to the reverb)
+tap FX
+wait 30
+expect page 2
+shot glitter.png
+tap FX
+wait 30
+expect page 1
 turn K1 30 20
 wait 30
 expect knob100_4 30
@@ -107,14 +115,14 @@ tap SEQ
 wait 30
 turn K1 20 20
 wait 30
-expect knob100_8 20
+expect knob100_12 20
 press EDIT
 wait 30
 turn K1 10 20
 wait 30
 release EDIT
-expect knob100_9 10
-expect knob100_8 20
+expect knob100_13 10
+expect knob100_12 20
 shot seq.png
 tap SEL
 wait 30
@@ -139,9 +147,14 @@ expect seed -90
 expect curve 0
 tap HOME
 wait 30
+# PRESETS: Pressure, a standing feed added to the key's
 turn PRESET 25 20
 wait 30
-expect grit100 25
+expect pressure100 25
+expect feed100 0
+turn PRESET -25 20
+wait 30
+expect pressure100 0
 # ignition: SELECT up past the threshold, and the loop sings
 spin SELECT 60
 wait 50
@@ -225,18 +238,20 @@ expect starvelatch 1
 turn K2 -10 20
 wait 6000
 expect dirty 0
+turn PRESET 30 20
+wait 30
 reboot
 wait 800
 expect knob100_1 30
-expect grit100 25
+# (Pressure starts at 0 at every boot: quiet)
+expect pressure100 0
 expect scale 3
 expect setmargin10 <-59
 expect starve 0
 expect starvelatch 0
 # (Grit at 75: Rot's coarse steps hiss a little into the loop, still quiet)
 expect peakdb <-45
-# Setup shows the render's load and the xruns
+# Setup shows the render's load and the xruns (the host's figure is wall-clock time: not checked; the FM-1's is)
 tap GLO
 wait 600
 shot setup.png
-expect cpupeak <50

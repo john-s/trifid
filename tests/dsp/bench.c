@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT
  * Copyright (C) 2026 john-s */
-/* The engine's cost on this machine, ns a frame, with everything running (Rot wet, the echo, Grit, Speaker): a
+/* The engine's cost on this machine, ns a frame, with everything running (the reverb, Glitter, the echo, Wear): a
  * relative figure for keeping the inner loop lean. The FM-1's figure is plat_cpu_pct on the device. */
 #include "tf_test.h"
 #include <time.h>
@@ -14,10 +14,12 @@ int main(void)
     double ns;
     tb_init();
     tf_params_default(&p);
-    p.rot_mix = 0.5f;
+    p.verb_mix = 0.5f;
+    p.verb_depth = 0.5f;
     p.echo_send = 0.5f;
     p.echo_ret = 0.2f;
-    p.grit = 0.5f;
+    p.glit_wet = 0.7f;
+    p.glit_amount = 0.5f;
     p.echo_wear = 0.5f;
     p.fb_db = tf_engine_threshold_db(&tb_e, &p) + 3.0f;
     for (i = 0; i < 2000; i++)

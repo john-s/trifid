@@ -68,14 +68,6 @@ static inline float tf_softclip(float x)
     x = fm_clampf(x, -1.5f, 1.5f);
     return x - (4.0f / 27.0f) * x * x * x;
 }
-/* triangle wavefold into [-1, 1]: slope +-1 everywhere */
-static inline float tf_fold(float u)
-{
-    float v = u + 1.0f;
-    v -= 4.0f * fm_floorf(v * 0.25f);
-    return 1.0f - fm_fabsf(v - 2.0f);
-}
-
 /* ------------------------------------------------------------- the SVF --- */
 /* Zavalishin's topology-preserving state-variable filter (the trapezoidal integrators): stable while it moves */
 typedef struct { float g, k, a1, a2, a3; } tf_svf_coef_t;

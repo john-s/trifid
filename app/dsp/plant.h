@@ -2,7 +2,7 @@
  * Copyright (C) 2026 john-s */
 /* The plant: Trifid's feedback loop, in stereo (two strings, one pitch; the right body delay 4 samples shorter).
  *
- *   feed mixer -> string -> drive -> LPF -> HPF -> [Rot, crossfaded: rot.h] -> feedback gain -> body delay -+
+ *   feed mixer -> string -> drive -> LPF -> HPF -> [reverb, crossfaded: verb.h] -> feedback gain -> body delay -+
  *        ^                                                                                                  |
  *        +--------------------------------------------------------------------------------------------------+
  *
@@ -11,12 +11,12 @@
  * its own feedback (a Hermite read, a DC block, a one-pole damping), so it rings at its pitch; the outer loop through
  * the feedback gain sets whether the whole thing self-excites.
  *
- * Every stage in the loop has a slope of at most 1 (the drive is normalised: drive changes the clip point, not the
- * small-signal gain; the wavefold has slope +-1; Rot's wet path is scaled to a peak gain of 1), so the loop's small-
- * signal gain bounds it: while plant_margin_db() < 0 the loop cannot ignite (the small-gain theorem), however long
- * it runs. The meter shows that number.
+ * Every stage in the dry loop has a slope of at most 1 (the drive is normalised: drive changes the clip point, not
+ * the small-signal gain), so the loop's small-signal gain bounds it: while plant_margin_db() < 0 the dry loop cannot
+ * ignite (the small-gain theorem), however long it runs. The meter shows that number. The reverb (verb.h), crossfaded
+ * in, moves the real point (its wet is scaled to unity energy, not to a peak of 1: docs/DECISIONS.md).
  *
- * Per sample: plant_tick_a (feed to filters), then Rot (the engine), then plant_tick_b (gain, body). Per block:
+ * Per sample: plant_tick_a (feed to filters), then the reverb (the engine), then plant_tick_b (gain, body). Per block:
  * plant_set. No platform calls: compiles natively for the tests. */
 #pragma once
 #include "dsp_util.h"
@@ -39,7 +39,6 @@ typedef struct {
     float drive;                        /* 0..1 (0.4 the default) */
     float lpf_hz, hpf_hz;               /* 100..18000, 10..4000 */
     float fb_db;                        /* -60..+12 */
-    float fold;                         /* 0..1, the wavefold's share (Grit) */
     float seed_db;                      /* the noise seed, dBFS (-90 the default) */
     float press;                        /* the pressure feed, 0..1 (linear level of noise into the string) */
     float ret;                          /* the echo's return into the feed, 0..1 */
@@ -60,7 +59,7 @@ typedef struct {
     float body_d, body_target, body_a;  /* the body delay, samples, smoothed per sample (tape-like) */
     tf_svf_coef_t lpc, hpc;
     tf_svf_t lp[2], hp[2];
-    float drive_g, drive_ig, fold, fold_k, fold_ik;
+    float drive_g, drive_ig;
     float g, g_target, g_a;             /* the feedback gain (linear), smoothed per sample */
     float seed, press, press_target, ret;
     float imp_env, imp_decay;           /* the velocity impulse: a noise burst's envelope */
@@ -136,12 +135,10 @@ static inline float plant_drive(const plant_t *p, float x)
 {
     float u = x * p->drive_g;           /* the clip point at 1 / drive_g: small-signal gain 1 */
     float y = tf_softclip(u);
-    if (p->fold > 0.0f)                 /* Grit's wavefold: a convex blend, so the slope stays <= 1 */
-        y += p->fold * (tf_fold(y * p->fold_k) * p->fold_ik - y);
     return y * p->drive_ig;
 }
 
-/* the feed, the strings, the drive and the filters: fl / fr go to Rot's crossfade. ext: the v1.x feeds (0) */
+/* the feed, the strings, the drive and the filters: fl / fr go to the reverb's crossfade. ext: the v1.x feeds (0) */
 static inline void plant_tick_a(plant_t *p, float ret_l, float ret_r, float ext, float *fl, float *fr)
 {
     float n = tf_noise(&p->rng), feed, il, ir, sl, sr;
@@ -159,7 +156,7 @@ static inline void plant_tick_a(plant_t *p, float ret_l, float ret_r, float ext,
     *fr = tf_svf_hp(&p->hp[1], &p->hpc, tf_svf_lp(&p->lp[1], &p->lpc, sr));
 }
 
-/* after Rot: the feedback gain, into the body delay */
+/* after the reverb: the feedback gain, into the body delay */
 static inline void plant_tick_b(plant_t *p, float yl, float yr)
 {
     p->g += p->g_a * (p->g_target - p->g);
