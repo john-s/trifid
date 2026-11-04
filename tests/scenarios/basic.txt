@@ -60,7 +60,7 @@ wait 30
 expect fine 0
 key 0 up
 wait 100
-# A#4 (key 17) strikes again; the black keys and D5..G5 do nothing
+# A#4 (key 17) strikes again; the other black keys do nothing
 expect imp 4
 key 17 down 100
 wait 50
@@ -69,11 +69,21 @@ expect imp 5
 key 1 down 100
 wait 50
 key 1 up
-key 21 down 100
-wait 50
-key 21 up
 expect imp 5
 expect note10 400
+# all 16 white keys play: D5 (key 21) is degree 12 (E minor from E2: C4 = 60), and the top row feeds from its
+# velocity (it has no pressure)
+key 21 down 100
+wait 100
+expect note10 600
+expect imp 6
+expect feed100 >30
+key 21 up
+wait 100
+expect feed100 0
+spin ALGO -20
+wait 30
+expect drone10 400
 # OCT+: an octave up
 tap OCT+
 wait 30

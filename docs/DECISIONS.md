@@ -5,14 +5,17 @@
 The owner settled these questions when the PRD was written. They're applied in `docs/PRD.md`, and the MVP is built
 to them.
 
-1. **Keys differ from the original PRD.** The 12 white keys F3–C5 play the chosen scale, one degree each up from the
-   root, with glide. OCT−/OCT+ shift by an octave. The string is monophonic and the last-held key wins.
+1. **Keys differ from the original PRD.** All 16 white keys F3–G5 play the chosen scale, one degree each up from
+   the root, with glide (the owner widened it from the 12 white keys F3–C5 on 2026-11-04, after playing it). OCT−/OCT+
+   shift by an octave. The string is monophonic and the last-held key wins. D5–G5 are on the top row, which fm1-base's
+   `lib/touch` reads through a velocity probe with no pressure, so they feed from their strike velocity, held until
+   release (as velocity mode does), whatever the feed mode.
 2. **Pressure raises only the noise feed level**, never the feedback gain, which belongs to the Feedback encoder
    (SELECT). Release stops feeding.
 3. **Velocity fires an impulse** (a short noise burst) at that strength.
 4. **A#4 (labelled GLO) re-strikes the held note.** Velocity sets the impulse, the pitch doesn't change, and its
    pressure is unused.
-5. **Every other black key, and the white keys D5–G5, are reserved** and do nothing.
+5. **Every other black key is reserved** and does nothing.
 6. **Pressure fallback.** A Setup option (GLO, EDIT + K3) switches feeding to velocity mode: the strike velocity sets
    a feed level, held until release. ARP latch works in both modes.
 7. **Echo length is 4 s**, stereo, int16 at fs/4 (176,472 bytes of pool).
@@ -127,7 +130,7 @@ instrument behaves, and are worth the owner's ear.
   with the feed level at the right edge), then the page's four names and values. The meter and scope redraw every
   other frame (about 30 a second), and the header and the page when they change.
 - **Lights**: the current page's button, PLAY (red when latched) for Starve, REC for Freeze, ARP for Latch, and held
-  buttons. The 12 playing keys and A#4 glow at fm1-base's mid level, and a held key is lit.
+  buttons. The 16 playing keys and A#4 glow at fm1-base's mid level, and a held key is lit.
 
 ### Build and repository
 
@@ -162,4 +165,4 @@ Where fm1-base and the PRD disagree, fm1-base wins (as instructed). None of thes
    the hot loop is one unit.
 7. **The keys' sensing** is fm1-base's `lib/touch` (`APP_TOUCH`): the 20 analog-row keys F3–C5 have velocity and
    pressure, and the top row (C#5–G5) has a velocity probe only. Trifid's playing keys and A#4 are all in the sensed
-   twenty, and the top row is reserved, so the probe isn't used.
+   twenty except D5–G5, which play through the top row's velocity probe (no pressure: they feed from velocity).

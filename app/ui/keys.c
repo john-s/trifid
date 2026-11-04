@@ -1,15 +1,17 @@
 /* SPDX-License-Identifier: MIT
  * Copyright (C) 2026 john-s */
-/* The keys (docs/PRD.md, Keys): the 12 white keys F3..C5 play the scale, one degree each up from the root, the
+/* The keys (docs/PRD.md, Keys): the 16 white keys F3..G5 play the scale, one degree each up from the root, the
  * last held winning (the string is monophonic), with glide; a key's velocity fires an impulse, its pressure raises the
- * noise feed (only the feed: the gain is SELECT's). A#4 strikes the held note again. Every other black key, and the
- * white keys D5..G5, do nothing (reserved). Pressure sensing is still experimental on the FM-1, so the feed can come
+ * noise feed (only the feed: the gain is SELECT's). A#4 strikes the held note again. Every other black key does
+ * nothing (reserved). D5..G5 (the top row) have velocity but no pressure: they feed from their strike velocity, held
+ * until release. Pressure sensing is still experimental on the FM-1, so the feed can come
  * from the velocity instead (GLO, EDIT + K3), held until release; ARP latches the feed either way.
  * Part of app.c (the unity build). */
 
-static const uint8_t PLAY_KEY[12] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19};   /* F3 G3 A3 B3 C4 .. B4 C5 */
+#define NPLAY 16
+static const uint8_t PLAY_KEY[NPLAY] = {0, 2, 4, 6, 7, 9, 11, 12, 14, 16, 18, 19, 21, 23, 24, 26};   /* F3 .. G5 */
 #define KEY_RESTRIKE 17u                 /* A#4, the black key under GLO */
-#define PLAY_MASK 0xD5AD5u               /* the 12 above, as key bits */
+#define PLAY_MASK 0x5AD5AD5u             /* the 16 above, as key bits */
 #define KEYS_LIT_MASK (PLAY_MASK | 1u << KEY_RESTRIKE)
 
 #define NSCALES 12
@@ -24,7 +26,7 @@ static const char *const NOTE_NAME[12] = {"C", "C#", "D", "D#", "E", "F", "F#", 
 
 static struct {
     uint32_t keys;                       /* held at the last poll */
-    uint8_t held[12], nheld;             /* the playing keys' degrees, the oldest first */
+    uint8_t held[NPLAY], nheld;             /* the playing keys' degrees, the oldest first */
     uint8_t vel;                         /* the top key's strike velocity (the velocity feed) */
     float recent[8];                     /* the feed over the last 8 frames: what a latch keeps at release */
     uint8_t rec_i;
@@ -66,7 +68,7 @@ static void keys_boot(void)
 static int degree_of(uint32_t k)
 {
     int d;
-    for (d = 0; d < 12; d++)
+    for (d = 0; d < NPLAY; d++)
         if (PLAY_KEY[d] == k)
             return d;
     return -1;
@@ -133,8 +135,10 @@ static void keys_poll(void)
     /* the feed: pressure on the key playing, or its strike velocity, times the depth */
     if (kb.top >= 0) {
         uint32_t t = (uint32_t)kb.top;
-        feed = st.feed_mode == FEED_VELOCITY ? (float)kb.vel * (1.0f / 127.0f)
-                                             : (touch_down(t) ? (float)touch_pressure(t) * (1.0f / 127.0f) : 0.0f);
+        /* (D5..G5, the top row, have no pressure: their strike velocity feeds, held, as in velocity mode) */
+        feed = st.feed_mode == FEED_VELOCITY || !touch_sensed(t)
+                   ? (float)kb.vel * (1.0f / 127.0f)
+                   : (touch_down(t) ? (float)touch_pressure(t) * (1.0f / 127.0f) : 0.0f);
         feed *= st.u.v.press_depth;
         live.feed = feed;
     } else if (!live.latch) {
