@@ -1,0 +1,16 @@
+# Trifid's build settings (fm1-base's tools/build.py: ./build.sh)
+name = "TRIFID"                # the build's files: trifid.fwsc, trifid-X.Y.fwsc
+id_prefix = "FM-1_74"          # package identity: dev FM-1_7400, releases FM-1_74XXYYZZ
+usb_manufacturer = "Trifid"
+usb_product = "TRIFID FM-1"
+ble = false                    # no Bluetooth (and no WiFi): the pool is the engine's
+usb_audio_in = true            # USB audio: the FM-1 recordable over the cable (fm1-base's default, said out loud)
+usb_audio_out = true           # and a computer plays through it (mixed after the app; docs/usb-audio.md)
+include = ["dsp"]
+o2 = ["dsp/*.c"]               # the DSP (plant, Rot, echo, output, engine) at -O2; no platform calls in them
+words = "words.tsv"
+# the site
+tagline = "an industrial feedback-noise instrument for the FM-1"
+repo = "https://github.com/john-s/trifid"
+licence = "MIT"
+credits = "Built on fm1-base and felucca-bsp. The idea is Audrey II's, by Synthux Academy (Nick Donaldson / Infrasonic Audio, Roey Tsemah)."
