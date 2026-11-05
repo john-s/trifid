@@ -22,9 +22,9 @@ below ignition it is (the white line is 0 dB). Under it is the output's scope.
 | ALGORITHM | the pitch (a semitone a detent) when no key is held; fine tune while one is |
 | PRESETS | Pressure: a standing noise feed into the string, added to the key's (0 at every boot) |
 | MASTER | the volume, after the limiter |
-| White keys F3–G5 | the scale, one degree each up from the root; the last held wins, with glide. Velocity strikes, and sets the noise feed, held until release |
+| White keys F3–G5 | the scale, one degree each up from the root; the last held wins, with glide. Velocity strikes, and sets the noise feed, held until release (Pluck on Setup: strike only) |
 | A#4 | strike the held note again |
-| HOME / FX / SEQ / SEL / GLO | pages: Plant (Body, Drive, LPF, HPF), Reverb (Mix, Decay, Mod, Rate; FX again: Glitter, Input, Glitter, Output, Wet), Echo (Send / EDIT: Return, Time, Feedback, Wear), Keys (Scale, Root, Glide, Depth), Setup (Velocity curve, Seed; the CPU and xrun figures) |
+| HOME / FX / SEQ / SEL / GLO | pages: Plant (Body, Drive, LPF, HPF), Reverb (Mix, Decay, Mod, Rate; FX again: Glitter, Input, Glitter, Output, Wet), Echo (Send / EDIT: Return, Time, Feedback, Wear), Keys (Scale, Root, Glide, Depth), Setup (Velocity curve, Seed, Keys: Feed or Pluck; the CPU and xrun figures) |
 | PLAY | Starve: hold to cut the loop; double-tap to latch, tap to let go |
 | REC | freeze the echo |
 | ARP | latch the feed: the last key keeps feeding after release |

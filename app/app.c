@@ -37,8 +37,9 @@ typedef struct {
         } v;
         float f[TF_ST_NF];
     } u;
-    int8_t scale, root, octave, rsv0, vel_curve, rsv1, rsv2, page;   /* (rsv: Speaker mode, pressure sense and the
-                                         * feed mode, cut 2026-11-04: kept so saved records still load) */
+    int8_t scale, root, octave, pluck, vel_curve, rsv1, rsv2, page;   /* pluck: the keys strike but do not feed
+                                         * (GLO K3); it took the byte of Speaker mode, cut 2026-11-04. rsv: pressure
+                                         * sense and the feed mode, cut too: kept so saved records still load */
 } tf_state_t;
 static tf_state_t st;
 _Static_assert(sizeof(((tf_state_t *)0)->u.v) == TF_ST_NF * sizeof(float), "the floats a recall glides");
@@ -77,7 +78,7 @@ static void state_defaults(tf_state_t *s)
     s->scale = 1;                       /* natural minor */
     s->root = 4;                        /* E */
     s->octave = 0;
-    s->rsv0 = 0;
+    s->pluck = 0;
     s->vel_curve = 0;
     s->rsv1 = s->rsv2 = 0;
     s->page = PG_HOME;
@@ -98,7 +99,8 @@ static void state_fix(tf_state_t *s)
     if (s->root < 0 || s->root > 11) s->root = d.root;
     if (s->octave < -2 || s->octave > 2) s->octave = d.octave;
     if (s->vel_curve < -5 || s->vel_curve > 5) s->vel_curve = d.vel_curve;
-    s->rsv0 = s->rsv1 = s->rsv2 = 0;
+    if (s->pluck != 0 && s->pluck != 1) s->pluck = d.pluck;
+    s->rsv1 = s->rsv2 = 0;
     if (s->page < 0 || s->page >= NPAGES) s->page = d.page;
 }
 
@@ -447,6 +449,7 @@ static void snapshot_recall(void)
     st.root = s.root;
     st.octave = s.octave;
     st.vel_curve = s.vel_curve;
+    st.pluck = s.pluck;
     live.glide_t0 = plat_ms();
     live.gliding = 1;
     mark();
