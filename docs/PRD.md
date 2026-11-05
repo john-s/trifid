@@ -80,6 +80,8 @@ a probe that compresses firm presses.
   change.
 - Every other black key is **reserved and does nothing**.
 - ARP latches the feed: the last key keeps feeding after release.
+- **Pluck** (GLO K3, Keys: Feed / Pluck; added 2026-11-05): the keys strike and feed nothing, so the string rings out
+  as a plain Karplus-Strong pluck while the loop is below ignition (Pressure still adds its feed if it's up).
 
 ## Controls
 
@@ -95,7 +97,7 @@ Pages, as button: KNOB 1 / 2 / 3 / 4:
 - SEQ (Echo): Send (EDIT-shift: Return) / Time / Feedback / Wear
 - SEL (Keys): Scale / Root / Glide / Depth (the feed's level at full velocity). About 12 scales: major, natural minor, dorian, phrygian, lydian,
   mixolydian, locrian, harmonic minor, major and minor pentatonic, whole tone, chromatic.
-- GLO (Setup): Velocity curve / Seed level / (free) / (free). Its page line shows the render's load, its longest
+- GLO (Setup): Velocity curve / Seed level / Keys (Feed or Pluck) / (free). Its page line shows the render's load, its longest
   block and the xruns (changed 2026-11-04: Output mode, Pressure sense and the feed mode were cut).
 
 Buttons: PLAY = Starve (hold to cut, double-tap to latch). REC = freeze the echo. ARP = latch feed (the last key

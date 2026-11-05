@@ -32,14 +32,18 @@ to them.
 12. **Grit at 0 was fully clean**: anti-aliased fs/4 paths, dithered 16-bit storage, no Wear, no wavefold. Grit is
     now replaced (decision 15); its successor is clean when bypassed (Glitter at Wet 0, the reverb at Mix 0, Wear 0).
 13. **Boot is always quiet and safe.**
+14. **Licensing**: concept credit to Audrey II (Synthux Academy: Nick Donaldson / Infrasonic Audio, Roey Tsemah;
+    MIT). No DaisySP code at all, LGPL or otherwise. fm1-base and felucca-bsp stay MPL-2.0 in their submodule, and
+    the JieLi AC79 SDK's Apache-2.0 notices stay with the three SDK files the package build fetches (never committed).
 15. **Glitter replaces Grit, and a chorused reverb replaces Rot** (2026-11-04, after playing it: Grit mostly added
     noise). Glitter is Airwindows' BitGlitter, after the loop and before the echo, with its own four controls. The
     reverb is a chorused plate in the loop. FX pages between the two: Reverb (Mix / Decay / Mod / Rate), then
     Glitter (Input / Glitter / Output / Wet). PRESETS, freed, became **Pressure**: a standing noise feed added to the
     key's (the owner's idea). Echo Wear stands on its own knob, and the wavefold is gone.
-14. **Licensing**: concept credit to Audrey II (Synthux Academy: Nick Donaldson / Infrasonic Audio, Roey Tsemah;
-    MIT). No DaisySP code at all, LGPL or otherwise. fm1-base and felucca-bsp stay MPL-2.0 in their submodule, and
-    the JieLi AC79 SDK's Apache-2.0 notices stay with the three SDK files the package build fetches (never committed).
+16. **Pluck** (2026-11-05, the owner's idea from playing A#4 after a release): a Setup option (GLO K3, Keys: Feed /
+    Pluck) where the white keys strike and feed nothing, held or not: a plain Karplus-Strong pluck, ringing out as the
+    loop lets it (below ignition it decays; above, the strike starts the loop). It takes the saved state's byte of the
+    cut Speaker mode, so saved settings still load. Turning Pluck on clears the ARP latch, which has nothing to hold.
 
 ## Implementation decisions
 

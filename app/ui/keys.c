@@ -4,7 +4,7 @@
  * last held winning (the string is monophonic), with glide. A key's velocity fires an impulse and sets the noise feed,
  * held until the key is let go (only the feed: the gain is SELECT's); every key alike. Pressure is not used: on the
  * FM-1 it was not playable, and the top row has none. A#4 strikes the held note again; the other black keys do
- * nothing (reserved). ARP latches the feed.
+ * nothing (reserved). ARP latches the feed. Pluck (GLO K3): the keys strike and do not feed.
  * Part of app.c (the unity build). */
 
 #define NPLAY 16
@@ -130,13 +130,13 @@ static void keys_poll(void)
         }
     }
     kb.keys = keys;
-    /* the feed: pressure on the key playing, or its strike velocity, times the depth */
-    if (kb.top >= 0) {
-        uint32_t t = (uint32_t)kb.top;
-        feed = (float)kb.vel * (1.0f / 127.0f);   /* the strike's velocity, held until release (every key alike) */
-        (void)t;
-        feed *= st.u.v.press_depth;
+    /* the feed: the key's strike velocity, held until release, times the depth. Pluck mode: none, the strike alone
+     * (a plain Karplus-Strong pluck, ringing out as the loop lets it) */
+    if (kb.top >= 0 && !st.pluck) {
+        feed = (float)kb.vel * (1.0f / 127.0f) * st.u.v.press_depth;
         live.feed = feed;
+    } else if (st.pluck) {
+        live.feed = 0.0f;
     } else if (!live.latch) {
         live.feed = 0.0f;                /* release stops the feeding */
     }

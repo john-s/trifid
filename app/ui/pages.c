@@ -8,24 +8,24 @@
  *   FX    Reverb  Mix / Decay / Mod (depth) / Rate; FX again: Glitter  Input / Glitter / Output / Wet
  *   SEQ   Echo   Send (EDIT: Return) / Time / Feedback / Wear
  *   SEL   Keys   Scale / Root / Glide / Depth (the feed's level at full velocity)
- *   GLO   Setup  Velocity curve / Seed level (and the render's load, the xruns)
+ *   GLO   Setup  Velocity curve / Seed level / Keys: Feed or Pluck (and the render's load, the xruns)
  *   PLAY hold: Starve; double-tap: latched (a tap lets go). REC: freeze the echo. ARP: latch the feed.
  *   ENV / LFO held: the echo time x 0.5 / x 2. EDIT: shift. SAVE: the snapshot; EDIT + SAVE: recall it.
  * Part of app.c (the unity build). */
 
 enum { KN_BODY, KN_DRIVE, KN_LPF, KN_HPF, KN_VMIX, KN_VDECAY, KN_VMOD, KN_VRATE, KN_GIN, KN_GLIT, KN_GOUT, KN_GWET,
-       KN_SEND, KN_RETURN, KN_TIME, KN_EFB, KN_WEAR, KN_SCALE, KN_ROOT, KN_GLIDE, KN_DEPTH, KN_CURVE, KN_SEED, KN_NONE,
-       NKN };
+       KN_SEND, KN_RETURN, KN_TIME, KN_EFB, KN_WEAR, KN_SCALE, KN_ROOT, KN_GLIDE, KN_DEPTH, KN_CURVE, KN_SEED,
+       KN_PLUCK, KN_NONE, NKN };
 static const char *const KN_NAME[NKN] = {"BODY", "DRIVE", "LPF", "HPF", "MIX", "DECAY", "MOD", "RATE", "INPUT",
                                          "GLITTER", "OUTPUT", "WET", "SEND", "RETURN", "TIME", "FDBK", "WEAR", "SCALE",
-                                         "ROOT", "GLIDE", "DEPTH", "CURVE", "SEED", ""};
+                                         "ROOT", "GLIDE", "DEPTH", "CURVE", "SEED", "KEYS", ""};
 static const uint8_t PAGE_KN[NPAGES][4] = {
     {KN_BODY, KN_DRIVE, KN_LPF, KN_HPF},
     {KN_VMIX, KN_VDECAY, KN_VMOD, KN_VRATE},
     {KN_GIN, KN_GLIT, KN_GOUT, KN_GWET},
     {KN_SEND, KN_TIME, KN_EFB, KN_WEAR},
     {KN_SCALE, KN_ROOT, KN_GLIDE, KN_DEPTH},
-    {KN_CURVE, KN_SEED, KN_NONE, KN_NONE}};
+    {KN_CURVE, KN_SEED, KN_PLUCK, KN_NONE}};
 static const char *const PAGE_NAME[NPAGES] = {"PLANT", "REVERB", "GLITTER", "ECHO", "KEYS", "SETUP"};
 static const char *const PAGE_BTN[NPAGES] = {"HOME", "FX", "FX", "SEQ", "SEL", "GLO"};
 /* the page each button opens (FX: the reverb, then each press the next effect page) */
@@ -139,6 +139,9 @@ static void knob_text(int k, char *b)
             text_cat(b, "+");
         text_cat(b, t);
         return;
+    case KN_PLUCK:
+        text_cat(b, st.pluck ? "PLUCK" : "FEED");
+        return;
     case KN_NONE:
         return;
     case KN_SEED:
@@ -190,6 +193,7 @@ static void knob_turn(int k, int32_t e)
         case KN_SCALE: st.scale = (int8_t)clamp(st.scale + e, 0, NSCALES - 1); keys_retune(); break;
         case KN_ROOT: st.root = (int8_t)clamp(st.root + e, 0, 11); keys_retune(); break;
         case KN_CURVE: st.vel_curve = (int8_t)clamp(st.vel_curve + e, -5, 5); touch_curve(st.vel_curve); break;
+        case KN_PLUCK: st.pluck = e > 0; if (st.pluck) live.latch = 0; break;
         case KN_SEED: st.u.v.seed_db = fm_clampf(st.u.v.seed_db + (float)e, -120.0f, -60.0f); break;
         default: break;
         }

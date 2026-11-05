@@ -140,11 +140,35 @@ spin K2 -5
 wait 30
 expect seed -95
 spin K2 5
-spin K3 3
 spin K4 3
 wait 30
 expect seed -90
 expect curve 0
+# GLO K3: Keys, Feed or Pluck. Pluck: a key strikes (an impulse) and feeds nothing, held or not
+spin K3 1
+wait 30
+expect pluck 1
+expect imp 7
+key 2 down 110
+wait 200
+expect imp 8
+expect feed100 0
+# (the scale is Phrygian here: E2, then F2)
+expect note10 410
+key 2 up
+wait 50
+spin K3 -1
+wait 30
+expect pluck 0
+key 2 down 110
+wait 200
+expect feed100 >30
+key 2 up
+wait 50
+expect feed100 0
+spin ALGO -1
+wait 30
+expect drone10 400
 tap HOME
 wait 30
 # PRESETS: Pressure, a standing feed added to the key's
