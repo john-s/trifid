@@ -112,6 +112,49 @@ float tf_engine_threshold_db(tf_engine_t *e, const tf_params_t *p)
     return -plant_loop_peak_db(&t);
 }
 
+/* the per-sample chain. On the FM-1 it runs from RAM (.ram_text, fm1-base's RAM code window: no instruction fetch
+ * from the flash, whose cache the render otherwise contends for); everything in it is inlined, and fm1-base's build
+ * refuses RAM code that calls into the flash */
+#ifdef __PI32V2__
+#define TF_RAM_CODE __attribute__((section(".ram_text"), noinline))
+#else
+#define TF_RAM_CODE __attribute__((noinline))
+#endif
+TF_RAM_CODE static void frames(tf_engine_t *e, float *l, float *r, uint32_t n, const float *ext, float makeup)
+{
+    plant_t *pl = &e->plant;
+    uint32_t i;
+    for (i = 0; i < n; i++) {
+        float fl, fr, yl, yr, el, er, ol, orr;
+        plant_tick_a(pl, e->ret_l, e->ret_r, ext ? ext[i] : 0.0f, &fl, &fr);
+        yl = fl;                        /* the reverb: the loop's mid in, stereo wet, crossfaded by Mix */
+        yr = fr;
+        verb_tick(&e->verb, &yl, &yr);
+        plant_tick_b(pl, yl, yr);
+        ol = yl * makeup;
+        orr = yr * makeup;
+        glitter_tick(&e->glit, &ol, &orr);   /* (after the loop: the echo repeats the crushed sound) */
+        echo_tick(&e->echo, ol, orr, &el, &er);
+        e->ret_l = el;
+        e->ret_r = er;
+        ol += el;
+        orr += er;
+        out_tick(&e->out, &ol, &orr);
+        l[i] = ol;
+        r[i] = orr;
+        if (++e->scope_ph == 8u) {
+            uint32_t w = e->scope_w;
+            e->scope_ph = 0;
+            e->scope[w] = (int8_t)(ol * (127.0f / OUT_CEIL));
+            e->scope_w = w + 1 == TF_SCOPE_N ? 0 : w + 1;
+        }
+    }
+}
+
+/* called through a pointer the compiler cannot fold back: the flash (0x02xxxxxx) to RAM (0x01C0xxxx) is beyond a
+ * direct call's reach (felucca-bsp's FL_FAR does the same for its RAM flash driver) */
+static void (*volatile frames_far)(tf_engine_t *, float *, float *, uint32_t, const float *, float) = frames;
+
 void tf_engine_render(tf_engine_t *e, const tf_params_t *p, float *l, float *r, uint32_t n, const float *ext)
 {
     plant_params_t pp;
@@ -119,7 +162,6 @@ void tf_engine_render(tf_engine_t *e, const tf_params_t *p, float *l, float *r, 
     echo_params_t ep;
     plant_t *pl = &e->plant;
     float glide = tf_glide_s(p->glide), makeup;
-    uint32_t i;
     if (!e->primed) {                   /* the first block: the string starts at its note, no glide from nowhere */
         e->note_now = p->note;
         e->primed = 1;
@@ -147,31 +189,7 @@ void tf_engine_render(tf_engine_t *e, const tf_params_t *p, float *l, float *r, 
     }
     makeup = TF_MAKEUP * pl->drive_g;
     e->out.peak = 0.0f;
-    for (i = 0; i < n; i++) {
-        float fl, fr, yl, yr, el, er, ol, orr;
-        plant_tick_a(pl, e->ret_l, e->ret_r, ext ? ext[i] : 0.0f, &fl, &fr);
-        yl = fl;                        /* the reverb: the loop's mid in, stereo wet, crossfaded by Mix */
-        yr = fr;
-        verb_tick(&e->verb, &yl, &yr);
-        plant_tick_b(pl, yl, yr);
-        ol = yl * makeup;
-        orr = yr * makeup;
-        glitter_tick(&e->glit, &ol, &orr);   /* (after the loop: the echo repeats the crushed sound) */
-        echo_tick(&e->echo, ol, orr, &el, &er);
-        e->ret_l = el;
-        e->ret_r = er;
-        ol += el;
-        orr += er;
-        out_tick(&e->out, &ol, &orr);
-        l[i] = ol;
-        r[i] = orr;
-        if (++e->scope_ph == 8u) {
-            uint32_t w = e->scope_w;
-            e->scope_ph = 0;
-            e->scope[w] = (int8_t)(ol * (127.0f / OUT_CEIL));
-            e->scope_w = w + 1 == TF_SCOPE_N ? 0 : w + 1;
-        }
-    }
+    frames_far(e, l, r, n, ext, makeup);
     plant_sanitize(pl);
     verb_sanitize(&e->verb);
     glitter_sanitize(&e->glit);

@@ -12,6 +12,8 @@ Each run: 10 minutes, the loop ignited, with FX (Rot), SEQ (the echo) and PRESET
 | 2026-11-04 | `d7eb61b` | 33% | — | 1 | no `SAVE` shown (that build counted save-caused xruns separately) |
 | 2026-11-04 | `795b745` | 27% | 0.85 / 2.9 ms | 1 | `AT 1:54 SAVE 1`: the xrun was a flash save (fm1-base's store erases a sector with interrupts off) |
 | 2026-11-04 | `3b8baf2` | 27% | 0.86 / 2.9 ms | **0** | the autosave as an append-only log (no erase while playing) |
+| 2026-11-05 | `1544db5` | 47% | 1.42 / 2.9 ms | — | the chorused plate and Glitter added (they run in the audio interrupt) |
+| 2026-11-05 | `2415ee3` | 42% | 1.26 / 2.9 ms | **0** | the CPU work: branch-free rounding, Glitter's sine as a polynomial (−43% on the host, −11% here) |
 
 **PRD targets: met.** One plant is under 50% of one core at 240 MHz: a peak of 27%, and the longest render used 30%
 of its budget. There were zero xruns in 10 minutes. The fixes that got there: the meter's maths moved out of the

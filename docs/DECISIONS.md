@@ -137,7 +137,12 @@ instrument behaves, and are worth the owner's ear.
   `sin(x|x|)/|x|` is a 9th-order polynomial in x (no sine, no divide; within 2.3e-6), and its crush is branch-free
   and multiplies by the reciprocal of its step (53 of 3.2 million inputs land one step differently, at exact step
   boundaries). The echo's resampler lost Grit's dead blends. On the host the whole engine went from about 305 to
-  about 175 ns a frame (−43%). The device figure is Setup's.
+  about 175 ns a frame (−43%). On the FM-1: PK 47% → 42%, MAX 1.42 → 1.26 ms, no xruns: an 11% saving, so the
+  device was mostly paying for something else, most likely instruction fetches from the flash through its cache.
+  So the per-sample loop (engine.c `frames`, with every helper forced inline by `TF_INL`) now runs from RAM: in
+  `.ram_text` (`__PI32V2__` only; 6,164 bytes; fm1-base's build confirms it calls nothing in the flash), reached
+  through a volatile function pointer, as felucca-bsp's `FL_FAR` reaches its RAM flash driver (a direct call from
+  the flash cannot reach RAM). Its constants and the block's setup stay in the flash.
 
 ### Controls and UI
 
@@ -199,8 +204,8 @@ Where fm1-base and the PRD disagree, fm1-base wins (as instructed). None of thes
    `.data` and `.bss` only. The stacks have their own region above the pool (`_ustack` 24 KB, `_sstack` 8 KB). Trifid
    uses about 28 KB of the 96 (`docs/ram.md`).
 3. **"24 KiB of RAM code".** `app.ld`'s RAMTEXT region is 32 KiB (0x8000). Its comment says the last 8 KiB were
-   freed for LOOM-8 on 2026-10-19. Trifid puts nothing in `.ram_text`: its DSP runs from flash (XIP) as o2 units, as
-   CTL-1's does.
+   freed for LOOM-8 on 2026-10-19. Since 2026-11-05 Trifid's per-sample loop runs from it (about 6 KB:
+   the CPU entry above); the rest of its DSP runs from flash (XIP) as o2 units.
 4. **Store saves silence the audio.** That's not in the PRD; it shapes the autosave (above).
 5. **"USB MIDI on"** needs nothing: USB MIDI is always on in fm1-base. `usb_audio_in`/`usb_audio_out` are written out
    in `app/fm1.toml` even though they're fm1-base's defaults.

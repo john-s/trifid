@@ -7,13 +7,17 @@
 #include <stdint.h>
 #include "fastmath.h"
 
+/* the per-sample helpers: always inlined, so the engine's per-sample loop (engine.c frames) is one function with no
+ * calls, which on the FM-1 runs from RAM */
+#define TF_INL static inline __attribute__((always_inline))
+
 #define TF_FS 44118.0f                  /* the FM-1's measured audio rate (fm1-base's nominal FS is 44100) */
 #define TF_FS4 (TF_FS * 0.25f)          /* Rot's and the echo's storage rate */
 #define TF_BLOCK 128u                   /* frames a render; the controls move once a block */
 
 /* ------------------------------------------------------------------ noise --- */
 /* xorshift32: white, uniform in [-1, 1) */
-static inline float tf_noise(uint32_t *s)
+TF_INL float tf_noise(uint32_t *s)
 {
     uint32_t x = *s;
     x ^= x << 13;
@@ -24,18 +28,18 @@ static inline float tf_noise(uint32_t *s)
 }
 
 /* ------------------------------------------------------------- numerics --- */
-static inline int tf_finite(float x)    /* not NaN, not infinite (no libm) */
+TF_INL int tf_finite(float x)    /* not NaN, not infinite (no libm) */
 {
     fm_bits_t b;
     b.f = x;
     return (b.u & 0x7F800000u) != 0x7F800000u;
 }
 /* a state that has drifted into denormals, or blown up, back to 0 */
-static inline float tf_clean(float x) { return tf_finite(x) && fm_fabsf(x) > 1e-20f ? x : 0.0f; }
-static inline float tf_lerp(float a, float b, float t) { return a + (b - a) * t; }
+TF_INL float tf_clean(float x) { return tf_finite(x) && fm_fabsf(x) > 1e-20f ? x : 0.0f; }
+TF_INL float tf_lerp(float a, float b, float t) { return a + (b - a) * t; }
 /* round to the nearest integer (ties to even), branch-free, for |x| < 2^22: adding 1.5 * 2^23 leaves the integer in
  * the float's low mantissa bits (a sign-dependent +-0.5 branch mispredicts on audio, whose sign is random) */
-static inline int32_t tf_round(float x)
+TF_INL int32_t tf_round(float x)
 {
     fm_bits_t b;
     b.f = x + 12582912.0f;
@@ -43,12 +47,12 @@ static inline int32_t tf_round(float x)
 }
 
 /* one-pole coefficient for a cutoff (Hz) at rate fs: y += a (x - y) */
-static inline float tf_onepole_a(float fc, float fs) { return 1.0f - fm_expf(-FM_TWO_PI * fc / fs); }
+TF_INL float tf_onepole_a(float fc, float fs) { return 1.0f - fm_expf(-FM_TWO_PI * fc / fs); }
 /* the same for a time constant (s) */
-static inline float tf_tau_a(float tau, float fs) { return tau <= 0.0f ? 1.0f : 1.0f - fm_expf(-1.0f / (tau * fs)); }
+TF_INL float tf_tau_a(float tau, float fs) { return tau <= 0.0f ? 1.0f : 1.0f - fm_expf(-1.0f / (tau * fs)); }
 
 /* atan(x), |error| < 1e-5 rad: for the block-rate tuning sums (phase of a filter at the string's pitch) */
-static inline float tf_atanf(float x)
+TF_INL float tf_atanf(float x)
 {
     float ax = fm_fabsf(x), r, z, z2;
     int inv = ax > 1.0f;
@@ -59,7 +63,7 @@ static inline float tf_atanf(float x)
         r = 1.5707963f - r;
     return x < 0.0f ? -r : r;
 }
-static inline float tf_atan2f(float y, float x)
+TF_INL float tf_atan2f(float y, float x)
 {
     if (x > 0.0f)
         return tf_atanf(y / x);
@@ -71,7 +75,7 @@ static inline float tf_atan2f(float y, float x)
 /* -------------------------------------------------------- shapers (slope <= 1) --- */
 /* cubic soft clip, unity slope at 0, flat (and 1) from |x| = 1.5: slope never above 1, so a loop through it is
  * never louder than the linear loop */
-static inline float tf_softclip(float x)
+TF_INL float tf_softclip(float x)
 {
     x = fm_clampf(x, -1.5f, 1.5f);
     return x - (4.0f / 27.0f) * x * x * x;
@@ -81,7 +85,7 @@ static inline float tf_softclip(float x)
 typedef struct { float g, k, a1, a2, a3; } tf_svf_coef_t;
 typedef struct { float ic1, ic2; } tf_svf_t;
 
-static inline void tf_svf_set(tf_svf_coef_t *c, float fc, float q, float fs)
+TF_INL void tf_svf_set(tf_svf_coef_t *c, float fc, float q, float fs)
 {
     c->g = fm_tanf(FM_PI * fm_clampf(fc, 1.0f, 0.49f * fs) / fs);
     c->k = 1.0f / q;
@@ -90,7 +94,7 @@ static inline void tf_svf_set(tf_svf_coef_t *c, float fc, float q, float fs)
     c->a3 = c->g * c->a2;
 }
 /* one step: the low-, band- and high-pass outputs */
-static inline void tf_svf_tick(tf_svf_t *s, const tf_svf_coef_t *c, float x, float *lp, float *bp, float *hp)
+TF_INL void tf_svf_tick(tf_svf_t *s, const tf_svf_coef_t *c, float x, float *lp, float *bp, float *hp)
 {
     float v3 = x - s->ic2;
     float v1 = c->a1 * s->ic1 + c->a2 * v3;
@@ -101,7 +105,7 @@ static inline void tf_svf_tick(tf_svf_t *s, const tf_svf_coef_t *c, float x, flo
     *bp = v1;
     *hp = x - c->k * v1 - v2;
 }
-static inline float tf_svf_lp(tf_svf_t *s, const tf_svf_coef_t *c, float x)
+TF_INL float tf_svf_lp(tf_svf_t *s, const tf_svf_coef_t *c, float x)
 {
     float v3 = x - s->ic2;
     float v1 = c->a1 * s->ic1 + c->a2 * v3;
@@ -110,7 +114,7 @@ static inline float tf_svf_lp(tf_svf_t *s, const tf_svf_coef_t *c, float x)
     s->ic2 = 2.0f * v2 - s->ic2;
     return v2;
 }
-static inline float tf_svf_hp(tf_svf_t *s, const tf_svf_coef_t *c, float x)
+TF_INL float tf_svf_hp(tf_svf_t *s, const tf_svf_coef_t *c, float x)
 {
     float v3 = x - s->ic2;
     float v1 = c->a1 * s->ic1 + c->a2 * v3;
@@ -119,14 +123,14 @@ static inline float tf_svf_hp(tf_svf_t *s, const tf_svf_coef_t *c, float x)
     s->ic2 = 2.0f * v2 - s->ic2;
     return x - c->k * v1 - v2;
 }
-static inline void tf_svf_clean(tf_svf_t *s)
+TF_INL void tf_svf_clean(tf_svf_t *s)
 {
     s->ic1 = tf_clean(s->ic1);
     s->ic2 = tf_clean(s->ic2);
 }
 /* |H| and arg H of the SVF's low-pass (hp = 0) or high-pass (hp = 1) at w (radians a sample): the trapezoidal SVF is
  * the bilinear transform of the analog prototype, so H(e^jw) = H_a(j tan(w/2) / g) */
-static inline void tf_svf_resp(const tf_svf_coef_t *c, int hp, float w, float *mag, float *ph)
+TF_INL void tf_svf_resp(const tf_svf_coef_t *c, int hp, float w, float *mag, float *ph)
 {
     float W = fm_tanf(0.5f * fm_minf(w, 3.1f)) / c->g;          /* s = jW */
     float re = 1.0f - W * W, im = c->k * W;                     /* the denominator 1 + k s + s^2 */
@@ -141,7 +145,7 @@ static inline void tf_svf_resp(const tf_svf_coef_t *c, int hp, float w, float *m
  * step is in LSBs (1: 16 bits, 2^k: 16 - k bits). At 16 bits the dither linearises the rounding (clean); at coarse
  * steps it is far smaller than a step, so the rounding stays a distortion that follows the signal (crunch), and a
  * signal under half a step stores as silence, not as hiss */
-static inline int16_t tf_store16(float x, float inv_fs, int32_t step, uint32_t *rng)
+TF_INL int16_t tf_store16(float x, float inv_fs, int32_t step, uint32_t *rng)
 {
     float d = (tf_noise(rng) + tf_noise(rng)) * 0.5f;           /* triangular, +-1 LSB */
     float v = x * inv_fs * 32767.0f + d;
@@ -164,7 +168,7 @@ typedef struct {
     tf_svf_t a1, a2, a3, post;
 } tf_dec_t;
 
-static inline void tf_dec_set(tf_dec_coef_t *c)
+TF_INL void tf_dec_set(tf_dec_coef_t *c)
 {
     tf_svf_set(&c->aa1, 3800.0f, 0.5176f, TF_FS);
     tf_svf_set(&c->aa2, 3800.0f, 0.7071f, TF_FS);
@@ -172,16 +176,16 @@ static inline void tf_dec_set(tf_dec_coef_t *c)
     tf_svf_set(&c->post, 4000.0f, 0.7071f, TF_FS);
 }
 /* the pre-filter, every frame (its output is kept every 4th) */
-static inline float tf_dec_in(tf_dec_t *d, const tf_dec_coef_t *c, float x)
+TF_INL float tf_dec_in(tf_dec_t *d, const tf_dec_coef_t *c, float x)
 {
     return tf_svf_lp(&d->a3, &c->aa3, tf_svf_lp(&d->a2, &c->aa2, tf_svf_lp(&d->a1, &c->aa1, x)));
 }
 /* the reconstruction, every frame: prev and cur the last two fs/4 samples, ph 0..3 the frame since cur */
-static inline float tf_dec_out(tf_dec_t *d, const tf_dec_coef_t *c, float prev, float cur, uint32_t ph)
+TF_INL float tf_dec_out(tf_dec_t *d, const tf_dec_coef_t *c, float prev, float cur, uint32_t ph)
 {
     return tf_svf_lp(&d->post, &c->post, tf_lerp(prev, cur, (float)ph * 0.25f));
 }
-static inline void tf_dec_clean(tf_dec_t *d)
+TF_INL void tf_dec_clean(tf_dec_t *d)
 {
     tf_svf_clean(&d->a1);
     tf_svf_clean(&d->a2);

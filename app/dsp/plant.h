@@ -85,7 +85,7 @@ float plant_body_delay(const plant_t *p, float want);    /* the body delay locke
 void plant_sanitize(plant_t *p);        /* end of a block: denormals flushed, a blown-up state reset */
 
 /* ------------------------------------------------------------- per sample --- */
-static inline float plant_string_tick(tf_string_t *s, const plant_t *p, float in)
+TF_INL float plant_string_tick(tf_string_t *s, const plant_t *p, float in)
 {
     const float *b = s->buf;
     float d = s->d, f, xm1, x0, x1, x2, c1, c2, c3, v;
@@ -119,7 +119,7 @@ static inline float plant_string_tick(tf_string_t *s, const plant_t *p, float in
     return s->damp_y;
 }
 
-static inline float plant_body_read(const plant_t *p, int ch, float d)
+TF_INL float plant_body_read(const plant_t *p, int ch, float d)
 {
     const float *b = p->body[ch];
     int32_t di = (int32_t)d, i0, i1;
@@ -131,7 +131,7 @@ static inline float plant_body_read(const plant_t *p, int ch, float d)
     return b[i0] + f * (b[i1] - b[i0]);
 }
 
-static inline float plant_drive(const plant_t *p, float x)
+TF_INL float plant_drive(const plant_t *p, float x)
 {
     float u = x * p->drive_g;           /* the clip point at 1 / drive_g: small-signal gain 1 */
     float y = tf_softclip(u);
@@ -139,7 +139,7 @@ static inline float plant_drive(const plant_t *p, float x)
 }
 
 /* the feed, the strings, the drive and the filters: fl / fr go to the reverb's crossfade. ext: the v1.x feeds (0) */
-static inline void plant_tick_a(plant_t *p, float ret_l, float ret_r, float ext, float *fl, float *fr)
+TF_INL void plant_tick_a(plant_t *p, float ret_l, float ret_r, float ext, float *fl, float *fr)
 {
     float n = tf_noise(&p->rng), feed, il, ir, sl, sr;
     p->press += 0.0015f * (p->press_target - p->press);          /* ~15 ms: pressure moves every 5 ms */
@@ -157,7 +157,7 @@ static inline void plant_tick_a(plant_t *p, float ret_l, float ret_r, float ext,
 }
 
 /* after the reverb: the feedback gain, into the body delay */
-static inline void plant_tick_b(plant_t *p, float yl, float yr)
+TF_INL void plant_tick_b(plant_t *p, float yl, float yr)
 {
     p->g += p->g_a * (p->g_target - p->g);
     p->body[0][p->bw] = yl * p->g;
