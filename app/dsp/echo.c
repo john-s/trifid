@@ -20,7 +20,7 @@ void echo_reset(echo_t *e)
             e->buf[c][i] = 0;
         e->bps[c].ic1 = e->bps[c].ic2 = 0.0f;
         e->dec[c].a1.ic1 = e->dec[c].a1.ic2 = e->dec[c].a2.ic1 = e->dec[c].a2.ic2 = e->dec[c].a3.ic1 = e->dec[c].a3.ic2 = 0.0f;
-        e->dec[c].post.ic1 = e->dec[c].post.ic2 = e->dec[c].op = 0.0f;
+        e->dec[c].post.ic1 = e->dec[c].post.ic2 = 0.0f;
         e->prev[c] = e->cur[c] = 0.0f;
     }
     e->w = e->ph = 0;
@@ -31,7 +31,7 @@ void echo_reset(echo_t *e)
     e->flut = e->flut_to = 0.0f;
     e->send = e->fb = e->hiss = 0.0f;
     tf_svf_set(&e->bp, 800.0f, 0.7f, TF_FS4);
-    tf_dec_set(&e->dc, 0.0f);
+    tf_dec_set(&e->dc);
     e->drop_g = e->drop_to = 1.0f;
     e->drop_rate = 0.0f;
     e->drop_left = 0;
@@ -48,7 +48,6 @@ void echo_set(echo_t *e, const echo_params_t *k)
     e->d_target = fm_clampf(k->time_s, ECHO_MIN_S, ECHO_MAX_S) * TF_FS4;
     e->hiss = wear * wear * 0.0015f;                        /* tape hiss: about -56 dB at full Wear */
     e->qstep = wear <= 0.0f ? 1 : (int32_t)1 << (int32_t)(wear * 9.0f + 0.5f);   /* 16 bits .. 7 */
-    tf_dec_set(&e->dc, k->grit);
     if (k->freeze && !e->frozen) {
         uint32_t d = (uint32_t)(e->d + 0.5f);
         e->frz_d = d < 2u ? 2u : d > ECHO_LEN - 1u ? ECHO_LEN - 1u : d;

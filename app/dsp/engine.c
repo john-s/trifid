@@ -81,7 +81,6 @@ static void map(tf_engine_t *e, const tf_params_t *p, plant_params_t *pp, verb_p
     ep->time_s = tf_echo_s(p->echo_time) * (p->time_mul > 0.0f ? p->time_mul : 1.0f);
     ep->feedback = tf_echo_fb(p->echo_fb);
     ep->wear = p->echo_wear;
-    ep->grit = 0.0f;                    /* (the echo's fs/4 path always clean) */
     ep->freeze = p->freeze;
     (void)e;
 }

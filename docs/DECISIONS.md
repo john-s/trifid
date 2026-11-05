@@ -128,6 +128,17 @@ instrument behaves, and are worth the owner's ear.
 - **NaN and denormal safety**: every IIR state is flushed below 1e-20 once a block. A non-finite state resets that
   module's lines (the loop can't make one by itself; the guard is against the impossible).
 
+- **CPU (2026-11-05)**: after the reverb and Glitter, the FM-1 read a peak of 47% (the budget is 50%) and a longest
+  block of 1.42 of 2.9 ms. Profiled on the host, the plate was the hot spot: rounding its stores with
+  `v + (v >= 0 ? 0.5 : -0.5)` branches on the sign, which audio flips at random, so the branch mispredicted on
+  most of its ten stores a sample. `tf_round` rounds branch-free instead (add 1.5·2²³ and read the integer from the
+  float's bits; exact, ties to even, matching `lrintf` everywhere in range). Also: the plate's 14 output taps are
+  summed as integers and converted once a side; its dither takes one random number a write, not two; Glitter's
+  `sin(x|x|)/|x|` is a 9th-order polynomial in x (no sine, no divide; within 2.3e-6), and its crush is branch-free
+  and multiplies by the reciprocal of its step (53 of 3.2 million inputs land one step differently, at exact step
+  boundaries). The echo's resampler lost Grit's dead blends. On the host the whole engine went from about 305 to
+  about 175 ns a frame (−43%). The device figure is Setup's.
+
 ### Controls and UI
 
 - **Feedback steps**: 0.1 dB a detent within 2 dB of ignition, 0.5 within 6 dB, 1 dB beyond, rounded to 0.1 dB.

@@ -30,18 +30,26 @@ void glitter_sanitize(glitter_t *g);
 
 #define GLITTER_REZ_A 0.0016666666666667f   /* BitGlitter's fixed steps */
 #define GLITTER_REZ_B 0.0026666666666667f
+#define GLITTER_INV_A 600.0f                /* 1 / the steps: a multiply, not a divide (slow on a small FPU) */
+#define GLITTER_INV_B 375.0f
 
 /* round away from zero to a multiple of rez (BitGlitter's loop of subtractions, as arithmetic), then its scale */
-static inline float glitter_crush(float x, float rez)
+static inline float glitter_crush(float x, float rez, float inv)
 {
-    float m = fm_fabsf(x), q = -fm_floorf(-m / rez) * rez;      /* ceil */
-    q *= 1.0f - rez;
-    return x < 0.0f ? -q : q;
+    fm_bits_t b, s;
+    float y = fm_fabsf(x) * inv, t;
+    int32_t i = (int32_t)y;             /* (y >= 0, below 2^31: x is within +-1 here) */
+    t = (float)i;
+    t += t < y ? 1.0f : 0.0f;           /* ceil, branch-free */
+    b.f = t * rez * (1.0f - rez);
+    s.f = x;
+    b.u |= s.u & 0x80000000u;           /* x's sign back */
+    return b.f;
 }
 
 /* one reducer: hold a sample every 1/rate frames, its edge softened (the held sample interpolated towards BitGlitter's
  * lastSample, which it never updates: towards 0), crushed */
-static inline float glitter_reduce(float *pos, float *held, float rate, float in, float rez)
+static inline float glitter_reduce(float *pos, float *held, float rate, float in, float rez, float inv)
 {
     float out = *held;
     *pos += rate;
@@ -50,7 +58,7 @@ static inline float glitter_reduce(float *pos, float *held, float rate, float in
         *held = in * (1.0f - *pos);
         out = 0.5f * out + 0.5f * *held;
     }
-    return glitter_crush(out, rez);
+    return glitter_crush(out, rez, inv);
 }
 
 static inline float glitter_ch(glitter_t *g, int c, float x)
@@ -59,12 +67,12 @@ static inline float glitter_ch(glitter_t *g, int c, float x)
     if (g->wet <= 0.0f)
         return x;
     x = fm_clampf(x * g->ingain, -1.0f, 1.0f) * 1.2533141373155f;   /* the sine saturation */
-    m = fm_fabsf(x);
-    x = m > 0.0f ? fm_sinf(x * m) / m : 0.0f;
+    m = x * x;                          /* sin(x|x|) / |x| = x (1 - u^2/3! + u^4/5! - u^6/7! + u^8/9!), u = x|x| <= pi/2 */
+    x = x * (1.0f + m * m * (-1.0f / 6.0f + m * m * (1.0f / 120.0f + m * m * (-1.0f / 5040.0f + m * m * (1.0f / 362880.0f)))));
     half = 0.5f * (x + g->last_in[c]);  /* (BitGlitter's crude oversampling: the halfway sample) */
     g->last_in[c] = x;
-    a = glitter_reduce(&g->pos_a[c], &g->held_a[c], g->rate_a, x, GLITTER_REZ_A);
-    b = glitter_reduce(&g->pos_b[c], &g->held_b[c], g->rate_b, half, GLITTER_REZ_B);
+    a = glitter_reduce(&g->pos_a[c], &g->held_a[c], g->rate_a, x, GLITTER_REZ_A, GLITTER_INV_A);
+    b = glitter_reduce(&g->pos_b[c], &g->held_b[c], g->rate_b, half, GLITTER_REZ_B, GLITTER_INV_B);
     x = 0.5f * (a + b);
     o = x * (1.0f - 0.5f * g->wet) + g->last_out[c] * (0.5f * g->wet);   /* darker with more wet, at most half */
     g->last_out[c] = x;

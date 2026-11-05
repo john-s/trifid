@@ -158,18 +158,18 @@ static void test_starve(void)
 }
 
 /* ---------------------------------------------------------------- clean --- */
-/* a sine at f through the echo's decimate-by-4 and back (dsp_util's tf_dec) at Grit g: the output's energy below
+/* a sine at f through the echo's decimate-by-4 and back (dsp_util's tf_dec): the output's energy below
  * 3.5 kHz (what folded down), dB re the input's */
-static double alias_db(float f, float grit)
+static double alias_db(float f)
 {
     tf_dec_coef_t c;
-    tf_dec_t d = {{0, 0}, {0, 0}, {0, 0}, {0, 0}, 0};
+    tf_dec_t d = {{0, 0}, {0, 0}, {0, 0}, {0, 0}};
     tf_svf_coef_t m;
     tf_svf_t s1 = {0, 0}, s2 = {0, 0}, s3 = {0, 0};
     uint32_t i, n = 44118u * 2u, ph = 0;
     double w = 0, e_in = 0, e_lo = 0;
     float prev = 0.0f, cur = 0.0f;
-    tf_dec_set(&c, grit);
+    tf_dec_set(&c);
     tf_svf_set(&m, 3500.0f, 0.7071f, TF_FS);
     for (i = 0; i < n; i++) {
         float x = 0.5f * sinf((float)w), in, y, lo;
@@ -226,7 +226,7 @@ static void test_clean(void)
     CHECK(tb_e.echo.hiss == 0.0f && tb_e.echo.qstep == 1 && drops == 0, "Wear 0: the echo has no hiss, 16-bit steps, "
           "no dropout in 10 s");
     for (i = 0; i < sizeof tones / sizeof tones[0]; i++) {
-        double a0 = alias_db(tones[i], 0.0f);
+        double a0 = alias_db(tones[i]);
         if (a0 > worst) worst = a0;
     }
     CHECK(worst < -40.0, "the echo's fs/4 path: tones 8.5..19 kHz fold below 3.5 kHz at %.1f dB at most (anti-aliased)",
