@@ -50,7 +50,7 @@ void echo_reset(echo_t *e);
 void echo_set(echo_t *e, const echo_params_t *k);   /* once a block */
 void echo_sanitize(echo_t *e);
 
-static inline float echo_read(const int16_t *b, uint32_t w, float d)
+TF_INL float echo_read(const int16_t *b, uint32_t w, float d)
 {
     int32_t di = (int32_t)d, i0 = (int32_t)w - di, i1;
     float f = d - (float)di;
@@ -60,7 +60,7 @@ static inline float echo_read(const int16_t *b, uint32_t w, float d)
     return ((float)b[i0] + f * (float)(b[i1] - b[i0])) * (ECHO_FS / 32767.0f);
 }
 
-static inline void echo_core(echo_t *e, float in_l, float in_r)
+TF_INL void echo_core(echo_t *e, float in_l, float in_r)
 {
     int c;
     float d, lp, bp, hp;
@@ -95,7 +95,7 @@ static inline void echo_core(echo_t *e, float in_l, float in_r)
 }
 
 /* every frame: the loop's output in, the echo out (the wet signal alone) */
-static inline void echo_tick(echo_t *e, float in_l, float in_r, float *out_l, float *out_r)
+TF_INL void echo_tick(echo_t *e, float in_l, float in_r, float *out_l, float *out_r)
 {
     float a = tf_dec_in(&e->dec[0], &e->dc, in_l), b = tf_dec_in(&e->dec[1], &e->dc, in_r);
     if (++e->ph == 4u) {

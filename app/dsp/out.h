@@ -19,7 +19,7 @@ void out_sanitize(out_t *o);
 
 /* the limiter: instant attack (the gain drops at once to what keeps this frame at the ceiling), smooth release, then
  * a clamp to the ceiling that also catches a NaN. Nothing above OUT_CEIL can come out. */
-static inline void out_limit(out_t *o, float *l, float *r)
+TF_INL void out_limit(out_t *o, float *l, float *r)
 {
     float a = fm_maxf(fm_fabsf(*l), fm_fabsf(*r)), g;
     o->lim_g += o->lim_rel * (1.0f - o->lim_g);
@@ -30,7 +30,7 @@ static inline void out_limit(out_t *o, float *l, float *r)
     *r = tf_finite(*r) ? fm_clampf(*r * g, -OUT_CEIL, OUT_CEIL) : 0.0f;
 }
 
-static inline void out_tick(out_t *o, float *l, float *r)
+TF_INL void out_tick(out_t *o, float *l, float *r)
 {
     float x = tf_finite(*l) ? *l * o->gain : 0.0f, y = tf_finite(*r) ? *r * o->gain : 0.0f;
     out_limit(o, &x, &y);

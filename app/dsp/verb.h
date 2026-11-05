@@ -53,22 +53,22 @@ float verb_wet_gain(float decay);       /* the wet path's scale: 1 / its peak ga
  * them from settling into a limit cycle of a few LSBs (plain rounding made the tail hang at about -66 dBFS at any
  * decay; truncation instead cut the tails short: its bias towards zero outweighs the decay at low levels) */
 #ifdef VERB_FLOAT_TEST
-static inline float verb_q(float x) { return x; }
-static inline float verb_f(float q) { return q; }
+TF_INL float verb_q(float x) { return x; }
+TF_INL float verb_f(float q) { return q; }
 #else
-static inline int16_t verb_q(float x)
+TF_INL int16_t verb_q(float x)
 {
     return (int16_t)tf_round(fm_clampf(x * (32767.0f / VERB_FS), -32767.0f, 32767.0f));
 }
-static inline float verb_f(int32_t q) { return (float)q * (VERB_FS / 32767.0f); }
+TF_INL float verb_f(int32_t q) { return (float)q * (VERB_FS / 32767.0f); }
 #endif
 
 /* the sample written d samples ago on line l (d 1 .. len) */
 /* the raw stored value d samples ago (the output taps sum these, and convert once) */
 #ifdef VERB_FLOAT_TEST
-static inline float verb_raw(const verb_t *v, const verb_line_t *l, uint32_t d)
+TF_INL float verb_raw(const verb_t *v, const verb_line_t *l, uint32_t d)
 #else
-static inline int32_t verb_raw(const verb_t *v, const verb_line_t *l, uint32_t d)
+TF_INL int32_t verb_raw(const verb_t *v, const verb_line_t *l, uint32_t d)
 #endif
 {
     int32_t i = (int32_t)l->w - (int32_t)d;
@@ -76,19 +76,19 @@ static inline int32_t verb_raw(const verb_t *v, const verb_line_t *l, uint32_t d
         i += l->len;
     return v->buf[l->at + (uint32_t)i];
 }
-static inline float verb_rd(const verb_t *v, const verb_line_t *l, uint32_t d)
+TF_INL float verb_rd(const verb_t *v, const verb_line_t *l, uint32_t d)
 {
     int32_t i = (int32_t)l->w - (int32_t)d;
     if (i < 0)
         i += l->len;
     return verb_f(v->buf[l->at + (uint32_t)i]);
 }
-static inline void verb_wr(verb_t *v, verb_line_t *l, float x)
+TF_INL void verb_wr(verb_t *v, verb_line_t *l, float x)
 {
     v->buf[l->at + l->w] = verb_q(x);
     l->w = (uint16_t)(l->w + 1u == l->len ? 0u : l->w + 1u);
 }
-static inline void verb_wr_d(verb_t *v, verb_line_t *l, float x)   /* dithered: the tank's recirculation */
+TF_INL void verb_wr_d(verb_t *v, verb_line_t *l, float x)   /* dithered: the tank's recirculation */
 {
 #ifdef VERB_FLOAT_TEST
     verb_wr(v, l, x);
@@ -105,21 +105,21 @@ static inline void verb_wr_d(verb_t *v, verb_line_t *l, float x)   /* dithered: 
 #endif
 }
 /* a delay line: x in, its full length ago out */
-static inline float verb_delay(verb_t *v, verb_line_t *l, float x)
+TF_INL float verb_delay(verb_t *v, verb_line_t *l, float x)
 {
     float y = verb_rd(v, l, l->len);
     verb_wr(v, l, x);
     return y;
 }
 /* a Schroeder allpass of the line's length: |H| = 1 */
-static inline float verb_ap(verb_t *v, verb_line_t *l, float g, float x)
+TF_INL float verb_ap(verb_t *v, verb_line_t *l, float g, float x)
 {
     float d = verb_rd(v, l, l->len), w = x - g * d;
     verb_wr(v, l, w);
     return d + g * w;
 }
 /* the same, its delay swept: d = len - 14 + 7 + exc * lfo (fractional, linear) */
-static inline float verb_apm(verb_t *v, verb_line_t *l, float g, float x, float mod)
+TF_INL float verb_apm(verb_t *v, verb_line_t *l, float g, float x, float mod)
 {
     float pos = (float)(l->len - 7u) + mod, f, a, b, d, w;
     uint32_t i = (uint32_t)pos;
@@ -133,7 +133,7 @@ static inline float verb_apm(verb_t *v, verb_line_t *l, float g, float x, float 
 }
 
 /* every frame: the loop's two sides in; out the crossfaded pair (dry .. wet by Mix) */
-static inline void verb_tick(verb_t *v, float *l, float *r)
+TF_INL void verb_tick(verb_t *v, float *l, float *r)
 {
     float x, a, t, wl, wr, c, s;
     int h;

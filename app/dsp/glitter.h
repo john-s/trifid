@@ -34,7 +34,7 @@ void glitter_sanitize(glitter_t *g);
 #define GLITTER_INV_B 375.0f
 
 /* round away from zero to a multiple of rez (BitGlitter's loop of subtractions, as arithmetic), then its scale */
-static inline float glitter_crush(float x, float rez, float inv)
+TF_INL float glitter_crush(float x, float rez, float inv)
 {
     fm_bits_t b, s;
     float y = fm_fabsf(x) * inv, t;
@@ -49,7 +49,7 @@ static inline float glitter_crush(float x, float rez, float inv)
 
 /* one reducer: hold a sample every 1/rate frames, its edge softened (the held sample interpolated towards BitGlitter's
  * lastSample, which it never updates: towards 0), crushed */
-static inline float glitter_reduce(float *pos, float *held, float rate, float in, float rez, float inv)
+TF_INL float glitter_reduce(float *pos, float *held, float rate, float in, float rez, float inv)
 {
     float out = *held;
     *pos += rate;
@@ -61,7 +61,7 @@ static inline float glitter_reduce(float *pos, float *held, float rate, float in
     return glitter_crush(out, rez, inv);
 }
 
-static inline float glitter_ch(glitter_t *g, int c, float x)
+TF_INL float glitter_ch(glitter_t *g, int c, float x)
 {
     float dry = x, a, b, m, half, o;
     if (g->wet <= 0.0f)
@@ -80,7 +80,7 @@ static inline float glitter_ch(glitter_t *g, int c, float x)
     return g->wet < 1.0f ? dry + g->wet * (o - dry) : o;   /* (as BitGlitter: no blend at full wet) */
 }
 
-static inline void glitter_tick(glitter_t *g, float *l, float *r)
+TF_INL void glitter_tick(glitter_t *g, float *l, float *r)
 {
     *l = glitter_ch(g, 0, *l);
     *r = glitter_ch(g, 1, *r);
