@@ -33,6 +33,14 @@ static inline int tf_finite(float x)    /* not NaN, not infinite (no libm) */
 /* a state that has drifted into denormals, or blown up, back to 0 */
 static inline float tf_clean(float x) { return tf_finite(x) && fm_fabsf(x) > 1e-20f ? x : 0.0f; }
 static inline float tf_lerp(float a, float b, float t) { return a + (b - a) * t; }
+/* round to the nearest integer (ties to even), branch-free, for |x| < 2^22: adding 1.5 * 2^23 leaves the integer in
+ * the float's low mantissa bits (a sign-dependent +-0.5 branch mispredicts on audio, whose sign is random) */
+static inline int32_t tf_round(float x)
+{
+    fm_bits_t b;
+    b.f = x + 12582912.0f;
+    return b.i - 0x4B400000;
+}
 
 /* one-pole coefficient for a cutoff (Hz) at rate fs: y += a (x - y) */
 static inline float tf_onepole_a(float fc, float fs) { return 1.0f - fm_expf(-FM_TWO_PI * fc / fs); }
@@ -141,58 +149,37 @@ static inline int16_t tf_store16(float x, float inv_fs, int32_t step, uint32_t *
     if (!tf_finite(v))
         return 0;
     v = fm_clampf(v, -32767.0f, 32767.0f);
-    if (step > 1) {
-        float u = v / (float)step;
-        q = (int32_t)(u + (u >= 0.0f ? 0.5f : -0.5f)) * step;
-    } else {
-        q = (int32_t)(v + (v >= 0.0f ? 0.5f : -0.5f));
-    }
+    q = step > 1 ? tf_round(v / (float)step) * step : tf_round(v);
     return (int16_t)(q < -32767 ? -32767 : q > 32767 ? 32767 : q);
 }
 
 /* --------------------------------------------- decimate by 4, and back up --- */
-/* Rot and the echo store at fs/4 (Nyquist 5.5 kHz). Grit sets how clean that is: 0, a 6th-order Butterworth at
- * 3.8 kHz before the decimation (what would fold into the passband is 40 dB down or more) and linear interpolation
- * with a 2-pole smoother after it (the images); towards 0.5 the pre-filter becomes a one-pole whose cutoff rises; at
- * 1 nothing at all: the sample taken every 4th frame and held (zero-order hold) */
+/* The echo stores at fs/4 (Nyquist 5.5 kHz): a 6th-order Butterworth at 3.8 kHz before the decimation (what would
+ * fold into the passband is 50 dB down or more) and linear interpolation with a 2-pole smoother after it (the
+ * images). (Grit's blends towards a one-pole and a zero-order hold are gone with Grit.) */
 typedef struct {
     tf_svf_coef_t aa1, aa2, aa3, post;
-    float op_a;                         /* the one-pole's coefficient */
-    float w_op, w_raw;                  /* the blend: aa4 -> one-pole (w_op), -> raw (w_raw) */
-    float w_hold;                       /* the reconstruction: smooth (0) -> zero-order hold (1) */
 } tf_dec_coef_t;
 typedef struct {
     tf_svf_t a1, a2, a3, post;
-    float op;
 } tf_dec_t;
 
-static inline void tf_dec_set(tf_dec_coef_t *c, float grit)
+static inline void tf_dec_set(tf_dec_coef_t *c)
 {
-    float g = fm_clampf(grit, 0.0f, 1.0f);
     tf_svf_set(&c->aa1, 3800.0f, 0.5176f, TF_FS);
     tf_svf_set(&c->aa2, 3800.0f, 0.7071f, TF_FS);
     tf_svf_set(&c->aa3, 3800.0f, 1.9319f, TF_FS);
     tf_svf_set(&c->post, 4000.0f, 0.7071f, TF_FS);
-    c->op_a = tf_onepole_a(3000.0f + 14000.0f * g, TF_FS);
-    c->w_op = fm_minf(1.0f, g * 2.0f);
-    c->w_raw = fm_clampf(g * 2.0f - 1.0f, 0.0f, 1.0f);
-    c->w_hold = g;
 }
 /* the pre-filter, every frame (its output is kept every 4th) */
 static inline float tf_dec_in(tf_dec_t *d, const tf_dec_coef_t *c, float x)
 {
-    float a = tf_svf_lp(&d->a3, &c->aa3, tf_svf_lp(&d->a2, &c->aa2, tf_svf_lp(&d->a1, &c->aa1, x)));
-    float o;
-    d->op += c->op_a * (x - d->op);
-    o = tf_lerp(a, d->op, c->w_op);
-    return tf_lerp(o, x, c->w_raw);
+    return tf_svf_lp(&d->a3, &c->aa3, tf_svf_lp(&d->a2, &c->aa2, tf_svf_lp(&d->a1, &c->aa1, x)));
 }
 /* the reconstruction, every frame: prev and cur the last two fs/4 samples, ph 0..3 the frame since cur */
 static inline float tf_dec_out(tf_dec_t *d, const tf_dec_coef_t *c, float prev, float cur, uint32_t ph)
 {
-    float lin = tf_lerp(prev, cur, (float)ph * 0.25f);
-    float sm = tf_svf_lp(&d->post, &c->post, lin);
-    return tf_lerp(sm, cur, c->w_hold);
+    return tf_svf_lp(&d->post, &c->post, tf_lerp(prev, cur, (float)ph * 0.25f));
 }
 static inline void tf_dec_clean(tf_dec_t *d)
 {
@@ -200,5 +187,4 @@ static inline void tf_dec_clean(tf_dec_t *d)
     tf_svf_clean(&d->a2);
     tf_svf_clean(&d->a3);
     tf_svf_clean(&d->post);
-    d->op = tf_clean(d->op);
 }

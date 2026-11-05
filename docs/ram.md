@@ -6,15 +6,15 @@ From `tools/ram_report.py`: the firmware's own sources (fm1-base's `device/unity
 
 | Region | Used | Limit | Left |
 | --- | ---: | ---: | ---: |
-| RAM (.data + .bss) | 28,323 | 98,304 | 69,981 |
+| RAM (.data + .bss) | 28,299 | 98,304 | 70,005 |
 | .pool | 325,952 | 344,064 | 18,112 (fm1-base insists on 8,192 spare) |
-| RAM, the device build's link (`app/build/trifid.elf`) | 28,404 | 98,304 | 69,900 |
+| RAM, the device build's link (`app/build/trifid.elf`) | 28,372 | 98,304 | 69,932 |
 | .pool, the device build's link | 325,952 | 344,064 | 18,112 |
 | .ram_text (the platform's RAM code) | 3,132 | 32,768 | 29,636 |
 
-The firmware image is 128,260 B (the app slot: 581 KB).
+The firmware image is 127,412 B (the app slot: 581 KB).
 
-Verdict: **fits** (pool headroom 18,112 B, RAM headroom 69,981 B).
+Verdict: **fits** (pool headroom 18,112 B, RAM headroom 70,005 B).
 
 ## .pool against the budget (docs/PRD.md)
 
@@ -49,8 +49,8 @@ Pool objects:
 | `abuf` | bss | 2,048 |
 | `ua_ring` | bss | 2,048 |
 | `sn_key` | bss | 1,944 |
-| `eng` | bss | 1,040 |
 | `ota_stage.hdr` | bss | 1,024 |
+| `eng` | bss | 1,016 |
 | `ota_dec` | bss | 640 |
 | `sx_frame` | bss | 640 |
 | `app_render.l` | bss | 512 |
@@ -70,9 +70,9 @@ Pool objects:
 
 | Build | RAM | Pool |
 | --- | ---: | ---: |
-| as configured (USB audio in and out) | 28,323 | 325,952 |
-| without the computer's audio (`usb_audio_out = false`) | 19,890 | 325,952 |
-| without USB audio (`usb_audio_in = false`) | 17,577 | 325,952 |
+| as configured (USB audio in and out) | 28,299 | 325,952 |
+| without the computer's audio (`usb_audio_out = false`) | 19,866 | 325,952 |
+| without USB audio (`usb_audio_in = false`) | 17,553 | 325,952 |
 
 USB audio costs 10,746 B of RAM and 0 B of pool in all, 8,433 B of RAM of it for the computer's audio (out). Its rings are in RAM by default (fm1-base `FM1B_UAC_RING_POOL` would move them to the pool).
 

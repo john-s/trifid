@@ -23,7 +23,6 @@ typedef struct {
     float time_s;                       /* 0.02 .. 3.99 */
     float feedback;                     /* 0..1.25 */
     float wear;                         /* 0..1, already scaled by Grit */
-    float grit;                         /* the decimation's cleanliness */
     int freeze;
 } echo_params_t;
 

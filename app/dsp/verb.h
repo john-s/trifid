@@ -58,13 +58,24 @@ static inline float verb_f(float q) { return q; }
 #else
 static inline int16_t verb_q(float x)
 {
-    float v = fm_clampf(x * (32767.0f / VERB_FS), -32767.0f, 32767.0f);
-    return (int16_t)(int32_t)(v + (v >= 0.0f ? 0.5f : -0.5f));
+    return (int16_t)tf_round(fm_clampf(x * (32767.0f / VERB_FS), -32767.0f, 32767.0f));
 }
-static inline float verb_f(int16_t q) { return (float)q * (VERB_FS / 32767.0f); }
+static inline float verb_f(int32_t q) { return (float)q * (VERB_FS / 32767.0f); }
 #endif
 
 /* the sample written d samples ago on line l (d 1 .. len) */
+/* the raw stored value d samples ago (the output taps sum these, and convert once) */
+#ifdef VERB_FLOAT_TEST
+static inline float verb_raw(const verb_t *v, const verb_line_t *l, uint32_t d)
+#else
+static inline int32_t verb_raw(const verb_t *v, const verb_line_t *l, uint32_t d)
+#endif
+{
+    int32_t i = (int32_t)l->w - (int32_t)d;
+    if (i < 0)
+        i += l->len;
+    return v->buf[l->at + (uint32_t)i];
+}
 static inline float verb_rd(const verb_t *v, const verb_line_t *l, uint32_t d)
 {
     int32_t i = (int32_t)l->w - (int32_t)d;
@@ -82,7 +93,14 @@ static inline void verb_wr_d(verb_t *v, verb_line_t *l, float x)   /* dithered: 
 #ifdef VERB_FLOAT_TEST
     verb_wr(v, l, x);
 #else
-    float d = (tf_noise(&v->rng) + tf_noise(&v->rng)) * (0.5f * VERB_FS / 32767.0f);
+    uint32_t n;                         /* TPDF from one xorshift: its two halves, each uniform */
+    float d;
+    n = v->rng;
+    n ^= n << 13;
+    n ^= n >> 17;
+    n ^= n << 5;
+    v->rng = n;
+    d = ((float)(int32_t)(n & 0xFFFFu) + (float)(int32_t)(n >> 16) - 65535.0f) * (VERB_FS / 32767.0f / 65536.0f);
     verb_wr(v, l, x + d);
 #endif
 }
@@ -142,12 +160,13 @@ static inline void verb_tick(verb_t *v, float *l, float *r)
         v->back[h] = verb_delay(v, &v->dl2[h], t);
     }
     /* the taps (Dattorro's, scaled): each side mostly from the other half */
-    wl = verb_rd(v, &v->dl1[1], 146) + verb_rd(v, &v->dl1[1], 1636) - verb_rd(v, &v->ap2[1], 1052)
-       + verb_rd(v, &v->dl2[1], 1098) - verb_rd(v, &v->dl1[0], 1095) - verb_rd(v, &v->ap2[0], 103)
-       - verb_rd(v, &v->dl2[0], 586);
-    wr = verb_rd(v, &v->dl1[0], 194) + verb_rd(v, &v->dl1[0], 1995) - verb_rd(v, &v->ap2[0], 675)
-       + verb_rd(v, &v->dl2[0], 1470) - verb_rd(v, &v->dl1[1], 1161) - verb_rd(v, &v->ap2[1], 184)
-       - verb_rd(v, &v->dl2[1], 67);
+    /* (summed as stored, converted once a side) */
+    wl = verb_f(verb_raw(v, &v->dl1[1], 146) + verb_raw(v, &v->dl1[1], 1636) - verb_raw(v, &v->ap2[1], 1052)
+              + verb_raw(v, &v->dl2[1], 1098) - verb_raw(v, &v->dl1[0], 1095) - verb_raw(v, &v->ap2[0], 103)
+              - verb_raw(v, &v->dl2[0], 586));
+    wr = verb_f(verb_raw(v, &v->dl1[0], 194) + verb_raw(v, &v->dl1[0], 1995) - verb_raw(v, &v->ap2[0], 675)
+              + verb_raw(v, &v->dl2[0], 1470) - verb_raw(v, &v->dl1[1], 1161) - verb_raw(v, &v->ap2[1], 184)
+              - verb_raw(v, &v->dl2[1], 67));
     *l += v->mix * (wl * v->wet_g - *l);
     *r += v->mix * (wr * v->wet_g - *r);
 }
