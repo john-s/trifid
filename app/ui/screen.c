@@ -36,9 +36,14 @@ static void diag_text(char *d)
         int_text((int32_t)(t % 60u), v);
         text_cat(d, v);
     }
-    if (saves.xruns) {
+    if (saves.store_xruns) {             /* the SAVE button's (fm1-base's store: an erase) */
         text_cat(d, " SAVE ");
-        int_text((int32_t)saves.xruns, v);
+        int_text((int32_t)saves.store_xruns, v);
+        text_cat(d, v);
+    }
+    if (saves.log_xruns) {               /* the autosave log's */
+        text_cat(d, " LOG ");
+        int_text((int32_t)saves.log_xruns, v);
         text_cat(d, v);
     }
 }

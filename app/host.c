@@ -45,6 +45,8 @@ int app_expect(const char *what, int *got)
     else if (!strcmp(what, "dirty")) *got = live.dirty;
     else if (!strcmp(what, "cpupeak")) *got = (int)cpu_peak;
     else if (!strcmp(what, "logsec")) *got = (int)lg.sec;
+    else if (!strcmp(what, "logxruns")) *got = (int)saves.log_xruns;
+    else if (!strcmp(what, "storexruns")) *got = (int)saves.store_xruns;
     else if (!strcmp(what, "logslot")) *got = (int)lg.slot;
     else if (!strcmp(what, "logseq")) *got = (int)lg.seq;
     else if (!strcmp(what, "peakdb")) *got = (int)(20.0f * fm_log2f(fm_maxf(eng.peak, 1e-6f)) * 0.30103f);
