@@ -6,15 +6,15 @@ From `tools/ram_report.py`: the firmware's own sources (fm1-base's `device/unity
 
 | Region | Used | Limit | Left |
 | --- | ---: | ---: | ---: |
-| RAM (.data + .bss) | 28,303 | 98,304 | 70,001 |
+| RAM (.data + .bss) | 28,312 | 98,304 | 69,992 |
 | .pool | 325,952 | 344,064 | 18,112 (fm1-base insists on 8,192 spare) |
 | RAM, the device build's link (`app/build/trifid.elf`) | 28,388 | 98,304 | 69,916 |
 | .pool, the device build's link | 325,952 | 344,064 | 18,112 |
 | .ram_text (the platform's RAM code) | 9,296 | 32,768 | 23,472 |
 
-The firmware image is 128,332 B (the app slot: 581 KB).
+The firmware image is 128,508 B (the app slot: 581 KB).
 
-Verdict: **fits** (pool headroom 18,112 B, RAM headroom 70,001 B).
+Verdict: **fits** (pool headroom 18,112 B, RAM headroom 69,992 B).
 
 ## .pool against the budget (docs/PRD.md)
 
@@ -64,15 +64,15 @@ Pool objects:
 | `midi_out_q` | bss | 256 |
 | `live` | bss | 236 |
 | `fm1_in_stat` | bss | 236 |
-| (159 more) | | 2,849 |
+| (162 more) | | 2,858 |
 
 ## USB audio's cost
 
 | Build | RAM | Pool |
 | --- | ---: | ---: |
-| as configured (USB audio in and out) | 28,303 | 325,952 |
-| without the computer's audio (`usb_audio_out = false`) | 19,870 | 325,952 |
-| without USB audio (`usb_audio_in = false`) | 17,557 | 325,952 |
+| as configured (USB audio in and out) | 28,312 | 325,952 |
+| without the computer's audio (`usb_audio_out = false`) | 19,879 | 325,952 |
+| without USB audio (`usb_audio_in = false`) | 17,566 | 325,952 |
 
 USB audio costs 10,746 B of RAM and 0 B of pool in all, 8,433 B of RAM of it for the computer's audio (out). Its rings are in RAM by default (fm1-base `FM1B_UAC_RING_POOL` would move them to the pool).
 

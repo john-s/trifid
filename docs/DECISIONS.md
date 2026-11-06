@@ -162,7 +162,9 @@ instrument behaves, and are worth the owner's ear.
   sector on every save, with interrupts off for tens of ms, longer than an audio half (2.9 ms). The device confirmed
   it: one xrun, and that xrun was a save (`XRUN 1 AT 1:54 SAVE 1`, with the longest render at 0.85 ms). So the last
   state goes into a log in the data area: two sectors (0x97000, 0x98000), 32 slots of 128 bytes each. An autosave
-  writes the next erased slot, one flash page, and fm1-base holds interrupts off for one page at a time (typically
+  writes the next erased slot (since 2026-11-06 in 16-byte pieces, its 12-byte header last: each piece holds the
+  interrupts off for a fraction of a page write, and a write cut short leaves no header, so its slot never reads as
+  valid), one flash page, and fm1-base holds interrupts off for one page at a time (typically
   well under a millisecond, 3 ms at worst). Each record carries a sequence number and a checksum, and the newest
   valid one wins at boot. The boot, silent anyway, erases the sector that doesn't hold the newest record, so a
   session has 32 autosaves before it needs an erase. Past that, the erase waits until the output is below −60 dBFS

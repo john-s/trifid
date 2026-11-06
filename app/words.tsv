@@ -18,3 +18,4 @@ CHROMA	chromatic
 PK	peak
 MAX	longest render
 XRUN	xruns
+LOG	autosave log

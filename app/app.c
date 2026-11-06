@@ -274,30 +274,43 @@ void app_init(void)
 }
 
 /* ------------------------------------------------------- save and recall --- */
-/* a save erases a flash sector, and fm1-base silences the audio meanwhile (tens of ms): the autosave waits until the
- * controls have been still 4 s, and while the loop is loud it saves at most once a minute */
-/* a save erases a flash sector with the interrupts off, longer than an audio half: the render after it is late, an
- * xrun. They are counted apart (Setup shows them), so the ones a save did not cause stand out */
+/* the flash's writes hold the interrupts off: a store save (the SAVE button: fm1-base erases a sector) for longer than
+ * an audio half, an autosave log write for a moment. An xrun in the 100 ms after one is counted as its: Setup shows
+ * the store's (SAVE) and the log's (LOG) apart, so the ones neither caused stand out */
+enum { SV_LOG = 1, SV_STORE = 2 };
 static struct {
     uint32_t before, until;             /* the xruns before a save; when its window closes */
-    uint32_t xruns;                     /* the xruns saves caused */
-    uint8_t open;
+    uint32_t xruns;                     /* all the xruns saves caused */
+    uint32_t log_xruns, store_xruns;    /* of them, the log's and the store's */
+    uint8_t open, kind;                 /* a window open; what wrote in it (SV_*: the store's erase wins) */
 } saves;
+static void saves_open(uint8_t kind)
+{
+    if (!saves.open)
+        saves.before = plat_xruns();
+    saves.open = 1;
+    saves.kind |= kind;
+    saves.until = plat_ms() + 100u;     /* (the late render comes as soon as the interrupts are back) */
+}
 static int store_save(uint32_t obj)
 {
     int rc;
-    if (!saves.open)
-        saves.before = plat_xruns();
+    saves_open(SV_STORE);
     rc = plat_store_save(obj, &st, sizeof st);
-    saves.open = 1;
-    saves.until = plat_ms() + 100u;     /* (the late render comes as soon as the interrupts are back) */
+    saves.until = plat_ms() + 100u;
     return rc;
 }
 static void saves_poll(void)
 {
     if (saves.open && (int32_t)(plat_ms() - saves.until) >= 0) {
+        uint32_t x = plat_xruns() - saves.before;
         saves.open = 0;
-        saves.xruns += plat_xruns() - saves.before;
+        saves.xruns += x;
+        if (saves.kind & SV_STORE)
+            saves.store_xruns += x;
+        else
+            saves.log_xruns += x;
+        saves.kind = 0;
     }
 }
 
@@ -395,7 +408,16 @@ static int log_save(int may_erase)
     log_buf.seq = lg.seq;
     log_buf.st = st;
     log_buf.sum = log_sum(&log_buf.st);
-    rc = plat_data_write(log_at(lg.sec, lg.slot), &log_buf, sizeof log_buf);
+    {   /* in 16-byte pieces, the 12-byte header (magic, number, sum) last: each piece holds the interrupts off for a
+         * small part of a page write, and a write cut short leaves no header, so the slot is never read as valid */
+        const uint8_t *b = (const uint8_t *)&log_buf;
+        uint32_t at = log_at(lg.sec, lg.slot), off;
+        rc = 0;
+        for (off = 12u; off < sizeof log_buf && rc == 0; off += 16u)
+            rc = plat_data_write(at + off, b + off, sizeof log_buf - off < 16u ? sizeof log_buf - off : 16u);
+        if (rc == 0)
+            rc = plat_data_write(at, b, 12u);
+    }
     back = (const log_rec_t *)plat_data(log_at(lg.sec, lg.slot));
     lg.slot++;                           /* (a failed slot is passed over: it is not erased any more) */
     if (rc != 0 || !back || back->seq != lg.seq || back->sum != log_buf.sum)
@@ -410,10 +432,8 @@ static void autosave(void)
     int quiet = eng.peak < 0.001f, rc;   /* below -60 dBFS: an erase's silence (and its xrun) goes unheard */
     if (!live.dirty || now - live.changed_at < 4000u || live.gliding)
         return;
-    if (!saves.open)
-        saves.before = plat_xruns();     /* (any xrun a log write causes is counted with the saves') */
+    saves_open(SV_LOG);
     rc = log_save(quiet);
-    saves.open = 1;
     saves.until = plat_ms() + 100u;
     if (rc == 0) {
         live.dirty = 0;
